@@ -13,6 +13,7 @@ local function stop_timer()
 		vim.fn.timer_stop(timer)
 	end
 end
+
 local function setup(opts)
 	opts = vim.tbl_deep_extend("keep", opts or {}, default_opts)
 	util.set_timeframes_timers(opts.timeframes, opts.default_bg, opts.default_theme)
