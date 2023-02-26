@@ -1,34 +1,25 @@
-local util = require("colorful-times.util")
+-- Load the modules
+local builder = require("colorful-times.builder")
+local observer = require("colorful-times.observer")
+local config = require("colorful-times.config")
 
-local default_opts = {
-	default_theme = "default",
-	default_bg = "dark",
-	timeframes = {},
-}
+-- Get the options from the config
+local opts = config.setup()
 
-local timer
+-- Create a builder instance
+local b = builder.new(opts.timeframes, opts.defaults)
 
-local function stop_timer()
-	if timer ~= nil and vim.fn.timer_info(timer) ~= -1 then
-		vim.fn.timer_stop(timer)
-	end
-end
+-- Set the theme at startup
+b:build()
+observer.update_theme(b.theme, b.bg)
 
-local function setup(opts)
-	opts = vim.tbl_deep_extend("keep", opts or {}, default_opts)
-	util.set_timeframes_timers(opts.timeframes, opts.default_bg, opts.default_theme)
+-- Add an observer to update the theme and background when the time changes
+observer.add_observer(function(theme, bg)
+	b:build()
+	observer.update_theme(b.theme, b.bg)
+end)
 
-	-- Set default theme
-	if not opts.timeframes or #opts.timeframes == 0 then
-		util.set_theme(opts.default_theme, opts.default_bg, opts.default_theme, opts.default_bg)
-	end
-end
-
+-- Return a table with a `setup()` function to allow the user to set the options
 return {
-	setup = setup,
-	stop_timer = stop_timer,
-	restart_timer = function(opts)
-		stop_timer()
-		setup(opts)
-	end,
+	setup = config.setup,
 }
