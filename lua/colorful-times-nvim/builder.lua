@@ -1,109 +1,93 @@
+local theme = require("colorful-times-nvim.theme")
+local time = require("colorful-times-nvim.time")
+
 local builder = {}
 
--- This function takes a time in the format hh:mm, and returns the number of
--- minutes since midnight.
-local function get_time_minutes(time)
-	local hours, minutes = time:match("(%d+):(%d+)")
-	return tonumber(hours) * 60 + tonumber(minutes)
-end
-
--- This function sorts the timeframes in the order they should be applied to a
--- window. If a timeframe's start time is before its stop time, it is stored
--- as a single timeframe. Otherwise, it is split into two timeframes, one
--- applying from the start time to midnight, and the other applying from
--- midnight to the stop time.
-
-local function sorted_timeframes(opts)
+function builder.sorted_timeframes(opts)
+	-- Sorts the timeframes in the order they should be applied to a window.
+	-- Each timeframe is specified by a start time and a stop time.
+	-- If a timeframe's start time is before its stop time, it is stored as a single timeframe.
+	-- Otherwise, it is split into two timeframes, one applying from the start time to midnight,
+	-- and the other applying from midnight to the stop time.
+	-- The default theme and background are used for any gaps between the timeframes.
+	--
+	-- Parameters:
+	--  opts: A table of options containing the default theme and background and the timeframes to use.
+	--
+	-- Returns:
+	--  A table of sorted timeframes with associated themes and backgrounds.
 	local frames = {}
-	local n = #opts.timeframes
 	for i, v in ipairs(opts.timeframes) do
-		local start_minutes = get_time_minutes(v.start)
-		local stop_minutes = get_time_minutes(v.stop)
+		local start_minutes = time.in_minutes(v.start)
+		local stop_minutes = time.in_minutes(v.stop)
+		local bg = v.bg or opts.default.bg
+		local tf_theme = v.theme or opts.default.theme
 		if start_minutes < stop_minutes then
-			table.insert(frames, { start_minutes, stop_minutes, v.theme, v.bg })
+			table.insert(frames, { start_minutes, stop_minutes, tf_theme, bg })
 		else
 			if start_minutes > 0 then
-				table.insert(frames, { 0, stop_minutes, v.theme, v.bg })
-				table.insert(frames, { start_minutes, 24 * 60, v.theme, v.bg })
+				table.insert(frames, { 0, stop_minutes, tf_theme, bg })
+				table.insert(frames, { start_minutes, 24 * 60, opts.default.theme, opts.default.bg })
 			else
-				table.insert(frames, { start_minutes, stop_minutes, v.theme, v.bg })
+				table.insert(frames, { 0, stop_minutes, theme, bg })
+				table.insert(frames, { start_minutes, 24 * 60, opts.default.theme, opts.default.bg })
 			end
 		end
 	end
 	table.sort(frames, function(a, b)
 		return a[1] < b[1]
 	end)
-	return frames
+
+	-- Fill any gaps between timeframes with the default theme and background
+	local filled_frames = {}
+	for i, frame in ipairs(frames) do
+		table.insert(filled_frames, frame)
+		local next_frame = frames[i + 1]
+		if next_frame and next_frame[1] > frame[2] then
+			local gap_start = frame[2]
+			local gap_stop = next_frame[1]
+			local gap_theme = opts.default.theme
+			local gap_bg = opts.default.bg
+			table.insert(filled_frames, { gap_start, gap_stop, gap_theme, gap_bg })
+		end
+	end
+
+	return filled_frames
 end
 
-local function find_current_theme(frames, opts, current_time, current_minutes)
-	-- Finds the theme that is currently active based on the current time.
+function builder.schedule_next_change(frames, opts)
+	-- Schedules the next theme change.
 	-- Parameters:
 	--  frames: A table of time frames with associated themes and backgrounds.
 	--  opts: A table containing the default theme and background.
-	--  current_time: The current time as a Unix timestamp.
-	--  current_minutes: The current time in minutes since midnight.
-	-- Returns:
-	--  The theme name and background name of the currently active theme.
-	for _, v in ipairs(frames) do
-		if current_minutes >= v[1] and current_minutes < v[2] then
-			return v[3], v[4]
-		end
-	end
-	return opts.default.theme, opts.default.bg
-end
 
--- This code sets the colorscheme and background to the given values. It does
--- this by executing a vim command, which can be seen as a vim script
--- function.
-local function set_theme(theme, bg)
-	vim.cmd("colorscheme " .. theme)
-	vim.o.background = bg
-end
-
--- Schedule the theme change to occur after the current time
--- @param frames A table of frames with the format {start_time, stop_time, theme, bg}
--- @param opts A table of options with the format {transition, duration}
-local function schedule_next_change(frames, opts, current_time, current_minutes)
-	local theme, bg = find_current_theme(frames, opts, current_time, current_minutes)
-
-	-- Loop over the timeframes and schedule the next change
-	for i = 1, #frames do
-		local next_index = (i % #frames) + 1
-		local next_start, next_stop = frames[next_index][1], frames[next_index][2]
-
-		if current_minutes >= next_start then
-			local delay = next_stop - current_minutes
-			if delay < 0 then
-				delay = delay + 24 * 60
-			end
-			delay = delay * 60
-
-			vim.defer_fn(function()
-				set_theme(frames[next_index][3], frames[next_index][4])
-				schedule_next_change(frames, opts, current_time + delay, next_stop)
-			end, delay * 1000)
-
-			return
-		end
-	end
-
-	-- If we reach this point, it means that there are no more timeframes
-	-- today, so we schedule the first timeframe for tomorrow.
-	local first_start = frames[1][1]
-	local delay = ((24 * 60) - current_minutes + first_start) * 60
+	-- Set the next theme immediately before scheduling the timer
+	local current_time = time.get()
+	local current_minutes = time.in_minutes(current_time)
+	local theme_name, bg_name = theme.current(frames, opts, current_minutes)
+	theme.set(theme_name, bg_name)
+	local next_theme = theme.next(frames, opts, current_minutes)
+	-- Schedule the timer to execute the next theme change at the specified delay
+	print(
+		vim.notify(
+			"Next theme change in "
+				.. next_theme.delay
+				.. " minutes. it will change to "
+				.. next_theme.theme
+				.. " with background "
+				.. next_theme.bg
+				.. "."
+		)
+	)
 	vim.defer_fn(function()
-		set_theme(frames[1][3], frames[1][4])
-		schedule_next_change(frames, opts, current_time + delay, first_start)
-	end, delay * 1000)
+		builder.schedule_next_change(frames, opts)
+	end, next_theme.delay * 60 * 1000)
 end
 
--- This function builds the theme according to the options specified by the user
-function builder.build(opts, current_time, current_minutes)
-	local sorted = sorted_timeframes(opts)
-	local theme, bg = find_current_theme(sorted, opts, current_time, current_minutes)
-	set_theme(theme, bg)
-	schedule_next_change(sorted, opts, current_time, current_minutes)
+function builder.build(opts)
+	local sorted = builder.sorted_timeframes(opts)
+	-- print(vim.notify(vim.inspect(sorted)))
+	builder.schedule_next_change(sorted, opts)
 end
 
 return builder
