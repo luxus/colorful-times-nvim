@@ -2,59 +2,85 @@ local theme = require("colorful-times-nvim.theme")
 local time = require("colorful-times-nvim.time")
 
 local builder = {}
-
 function builder.sorted_timeframes(opts)
-	-- Sorts the timeframes in the order they should be applied to a window.
-	-- Each timeframe is specified by a start time and a stop time.
-	-- If a timeframe's start time is before its stop time, it is stored as a single timeframe.
-	-- Otherwise, it is split into two timeframes, one applying from the start time to midnight,
-	-- and the other applying from midnight to the stop time.
-	-- The default theme and background are used for any gaps between the timeframes.
-	--
-	-- Parameters:
-	--  opts: A table of options containing the default theme and background and the timeframes to use.
-	--
-	-- Returns:
-	--  A table of sorted timeframes with associated themes and backgrounds.
+	-- Sort the timeframes and fill gaps
+	local frames = builder.sort_timeframes(opts.timeframes, {
+		default_theme = opts.default.theme,
+		default_bg = opts.default.bg,
+	})
+	frames = builder.fill_gaps(frames, opts.default.theme, opts.default.bg)
+
+	return frames
+end
+
+-- Helper function to split a timeframe that starts later than it ends
+local function split_timeframe(tf_start, tf_stop, tf_theme, tf_bg)
+	-- Convert midnight to minutes
+	local midnight = 24 * 60
+	-- First part of the split timeframe runs until midnight
+	local first_part = { tf_start, midnight, tf_theme, tf_bg }
+	-- Second part of the split timeframe starts at midnight
+	-- and runs until the stop time
+	local second_part = { 0, tf_stop, tf_theme, tf_bg }
+	return { first_part, second_part }
+end
+
+-- Main function to sort timeframes by start time
+function builder.sort_timeframes(timeframes, default_opts)
 	local frames = {}
-	for i, v in ipairs(opts.timeframes) do
-		local start_table = time.convert_24_to_table(v.start)
-		local stop_table = time.convert_24_to_table(v.stop)
-		local start_minutes = time.in_minutes(start_table)
-		local stop_minutes = time.in_minutes(stop_table)
-		local bg = v.bg or opts.default.bg
-		local tf_theme = v.theme or opts.default.theme
-		if start_minutes < stop_minutes then
-			table.insert(frames, { start_minutes, stop_minutes, tf_theme, bg })
-		else
-			if start_minutes > 0 then
-				table.insert(frames, { 0, stop_minutes, tf_theme, bg })
-				table.insert(frames, { start_minutes, 24 * 60, opts.default.theme, opts.default.bg })
-			else
-				table.insert(frames, { 0, stop_minutes, theme, bg })
-				table.insert(frames, { start_minutes, 24 * 60, opts.default.theme, opts.default.bg })
+	for _, tf in ipairs(timeframes) do
+		local tf_start = time.in_minutes(time.convert_24_to_table(tf.start))
+		local tf_stop = time.in_minutes(time.convert_24_to_table(tf.stop))
+		local tf_bg = tf.bg or default_opts.default_bg
+		local tf_theme = tf.theme or default_opts.default_theme
+
+		if tf_start > tf_stop then
+			-- Split timeframe into two parts
+			local split_frames = split_timeframe(tf_start, tf_stop, tf_theme, tf_bg)
+			for _, frame in ipairs(split_frames) do
+				table.insert(frames, frame)
 			end
+		else
+			-- Timeframe starts and ends on the same day
+			table.insert(frames, { tf_start, tf_stop, tf_theme, tf_bg })
 		end
 	end
+
 	table.sort(frames, function(a, b)
 		return a[1] < b[1]
 	end)
 
-	-- Fill any gaps between timeframes with the default theme and background
+	return frames
+end
+function builder.fill_gaps(frames, default_theme, default_bg)
 	local filled_frames = {}
-	for i, frame in ipairs(frames) do
-		table.insert(filled_frames, frame)
-		local next_frame = frames[i + 1]
-		if next_frame and next_frame[1] > frame[2] then
-			local gap_start = frame[2]
-			local gap_stop = next_frame[1]
-			local gap_theme = opts.default.theme
-			local gap_bg = opts.default.bg
-			table.insert(filled_frames, { gap_start, gap_stop, gap_theme, gap_bg })
+	local last_stop = 0
+	for _, frame in ipairs(frames) do
+		local start = frame[1]
+		local stop = frame[2]
+		local theme = frame[3]
+		local bg = frame[4]
+
+		if start > last_stop then
+			table.insert(filled_frames, { last_stop, start, default_theme, default_bg })
+		end
+
+		table.insert(filled_frames, { start, stop, theme, bg })
+		last_stop = stop
+	end
+
+	if last_stop < 1440 then
+		table.insert(filled_frames, { last_stop, 1440, default_theme, default_bg })
+	end
+
+	local final_frames = {}
+	for _, frame in ipairs(filled_frames) do
+		if frame[2] - frame[1] > 0 then
+			table.insert(final_frames, frame)
 		end
 	end
 
-	return filled_frames
+	return final_frames
 end
 
 function builder.schedule_next_change(frames, opts)
