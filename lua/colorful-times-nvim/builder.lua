@@ -18,8 +18,10 @@ function builder.sorted_timeframes(opts)
 	--  A table of sorted timeframes with associated themes and backgrounds.
 	local frames = {}
 	for i, v in ipairs(opts.timeframes) do
-		local start_minutes = time.in_minutes(v.start)
-		local stop_minutes = time.in_minutes(v.stop)
+		local start_table = time.convert_24_to_table(v.start)
+		local stop_table = time.convert_24_to_table(v.stop)
+		local start_minutes = time.in_minutes(start_table)
+		local stop_minutes = time.in_minutes(stop_table)
 		local bg = v.bg or opts.default.bg
 		local tf_theme = v.theme or opts.default.theme
 		if start_minutes < stop_minutes then
@@ -62,8 +64,7 @@ function builder.schedule_next_change(frames, opts)
 	--  opts: A table containing the default theme and background.
 
 	-- Set the next theme immediately before scheduling the timer
-	local current_time = time.get()
-	local current_minutes = time.in_minutes(current_time)
+	local current_minutes = time.in_minutes(time.get())
 	local theme_name, bg_name = theme.current(frames, opts, current_minutes)
 	theme.set(theme_name, bg_name)
 	local next_theme = theme.next(frames, opts, current_minutes)
