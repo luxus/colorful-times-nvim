@@ -78,28 +78,37 @@ function builder.fill_gaps(frames, default_theme, default_bg)
 
 	return filled_frames
 end
+local enabled = true
 
-function builder.schedule_next_change(frames, opts)
-	-- Schedules the next theme change.
-	-- Parameters:
-	--  frames: A table of time frames with associated themes and backgrounds.
-	--  opts: A table containing the default theme and background.
+function builder.set_enabled(value)
+	enabled = value
+end
 
-	-- Set the next theme immediately before scheduling the timer
+function builder.schedule_next_change_if_enabled(frames, opts)
+	if not enabled then
+		return
+	end
 	local current_minutes = time.in_minutes(time.get())
 	local theme_name, bg_name = theme.current(frames, opts, current_minutes)
 	theme.set(theme_name, bg_name)
 	local next_theme = theme.next(frames, opts, current_minutes)
-	-- Schedule the timer to execute the next theme change at the specified delay
-	vim.defer_fn(function()
-		builder.schedule_next_change(frames, opts)
-	end, next_theme.delay * 60 * 1000)
+
+	local timer = vim.loop.new_timer()
+	timer:start(
+		next_theme.delay * 60 * 1000,
+		0,
+		vim.schedule_wrap(function()
+			builder.schedule_next_change_if_enabled(frames, opts)
+			timer:stop()
+			timer:close()
+		end)
+	)
 end
 
 function builder.build(opts)
 	local sorted = builder.sorted_timeframes(opts)
 	-- print(vim.notify(vim.inspect(sorted)))
-	builder.schedule_next_change(sorted, opts)
+	builder.schedule_next_change_if_enabled(sorted, opts)
 end
 
 return builder
