@@ -52,6 +52,7 @@ function builder.sort_timeframes(timeframes, default_opts)
 
 	return frames
 end
+
 function builder.fill_gaps(frames, default_theme, default_bg)
 	local filled_frames = {}
 	local last_stop = 0
@@ -65,7 +66,9 @@ function builder.fill_gaps(frames, default_theme, default_bg)
 			table.insert(filled_frames, { last_stop, start, default_theme, default_bg })
 		end
 
-		table.insert(filled_frames, { start, stop, theme, bg })
+		if stop - start > 0 then
+			table.insert(filled_frames, { start, stop, theme, bg })
+		end
 		last_stop = stop
 	end
 
@@ -73,14 +76,7 @@ function builder.fill_gaps(frames, default_theme, default_bg)
 		table.insert(filled_frames, { last_stop, 1440, default_theme, default_bg })
 	end
 
-	local final_frames = {}
-	for _, frame in ipairs(filled_frames) do
-		if frame[2] - frame[1] > 0 then
-			table.insert(final_frames, frame)
-		end
-	end
-
-	return final_frames
+	return filled_frames
 end
 
 function builder.schedule_next_change(frames, opts)
