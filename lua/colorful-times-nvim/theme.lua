@@ -49,7 +49,7 @@ function theme.next(frames, opts, current_minutes)
 			next_delay = stop_minutes - current_minutes
 			i = idx
 			break
-		elseif current_minutes < start_minutes then
+		else
 			-- Next timeframe is about to start
 			next_delay = start_minutes - current_minutes
 			i = idx
