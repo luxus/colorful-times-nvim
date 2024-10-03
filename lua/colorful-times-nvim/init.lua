@@ -19,7 +19,7 @@ M.config = {
 		background = "system",
 	},
 	enabled = true,
-	refresh_time = 5000,              -- Default refresh time in milliseconds
+	refresh_time = 5000, -- Default refresh time in milliseconds
 	system_background_detection = nil, -- Custom system background detection for Linux.
 }
 
@@ -132,6 +132,18 @@ local function preprocess_schedule()
 				background = background,
 			})
 		end
+	end
+end
+
+-- Timer utility functions.
+local function create_timer()
+	return uv.new_timer()
+end
+
+local function stop_and_close_timer(timer_handle)
+	if timer_handle then
+		timer_handle:stop()
+		timer_handle:close()
 	end
 end
 
@@ -277,8 +289,8 @@ local function apply_colorscheme()
 	if background == "system" then
 		-- Compute fallback outside of callback
 		local fallback = M.config.default.background ~= "system" and M.config.default.background
-				or vim.o.background
-				or "dark"
+			or vim.o.background
+			or "dark"
 		get_system_background(function(bg)
 			set_colorscheme(bg)
 		end, fallback)
@@ -290,11 +302,7 @@ end
 -- Schedule the next colorscheme change.
 local function schedule_next_change()
 	-- Stop existing timer if any.
-	if timer then
-		timer:stop()
-		timer:close()
-		timer = nil
-	end
+	stop_and_close_timer(timer)
 
 	if not M.config.enabled then
 		return
@@ -320,7 +328,7 @@ local function schedule_next_change()
 	end
 
 	if next_change_in then
-		timer = uv.new_timer()
+		timer = create_timer()
 		timer:start(next_change_in * 60 * 1000, 0, function()
 			vim.schedule(function()
 				apply_colorscheme()
@@ -332,11 +340,7 @@ end
 
 -- Start a timer to periodically check the system appearance.
 local function start_system_appearance_timer()
-	if appearance_timer then
-		appearance_timer:stop()
-		appearance_timer:close()
-		appearance_timer = nil
-	end
+	stop_and_close_timer(appearance_timer)
 
 	local sysname = uv.os_uname().sysname or "Unknown"
 	if sysname ~= "Darwin" and sysname ~= "Linux" then
@@ -345,11 +349,11 @@ local function start_system_appearance_timer()
 
 	-- Compute fallback outside of loop callback
 	local fallback = previous_background
-			or M.config.default.background ~= "system" and M.config.default.background
-			or vim.o.background
-			or "dark"
+		or M.config.default.background ~= "system" and M.config.default.background
+		or vim.o.background
+		or "dark"
 
-	appearance_timer = uv.new_timer()
+	appearance_timer = create_timer()
 	appearance_timer:start(0, M.config.refresh_time, function()
 		get_system_background(function(current_background)
 			if current_background ~= previous_background then
@@ -374,24 +378,16 @@ function M.toggle()
 		vim.notify("Colorful Times enabled.", vim.log.levels.INFO)
 	else
 		-- Stop any scheduled changes.
-		if timer then
-			timer:stop()
-			timer:close()
-			timer = nil
-		end
+		stop_and_close_timer(timer)
 		-- Stop the appearance timer.
-		if appearance_timer then
-			appearance_timer:stop()
-			appearance_timer:close()
-			appearance_timer = nil
-		end
+		stop_and_close_timer(appearance_timer)
 		-- Apply default colorscheme and background.
 		local background = M.config.default.background
 		if background == "system" then
 			-- Compute fallback outside of callback
 			local fallback = M.config.default.background ~= "system" and M.config.default.background
-					or vim.o.background
-					or "dark"
+				or vim.o.background
+				or "dark"
 			get_system_background(function(bg)
 				previous_background = bg
 				vim.schedule(function()
