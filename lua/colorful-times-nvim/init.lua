@@ -19,7 +19,7 @@ M.config = {
 		background = "system",
 	},
 	enabled = true,
-	refresh_time = 5000, -- Default refresh time in milliseconds
+	refresh_time = 5000,              -- Default refresh time in milliseconds
 	system_background_detection = nil, -- Custom system background detection for Linux.
 }
 
@@ -148,6 +148,16 @@ end
 local function get_system_background(callback, fallback)
 	local sysname = uv.os_uname().sysname or "Unknown"
 
+	local function handle_spawn_result(code)
+		vim.schedule(function()
+			if code == 0 then
+				callback("dark")
+			else
+				callback("light")
+			end
+		end)
+	end
+
 	if sysname == "Darwin" then
 		-- macOS implementation using 'defaults' command.
 		local stdout = uv.new_pipe(false)
@@ -162,14 +172,7 @@ local function get_system_background(callback, fallback)
 			stdout:close()
 			stderr:close()
 			handle:close()
-
-			vim.schedule(function()
-				if code == 0 then
-					callback("dark")
-				else
-					callback("light")
-				end
-			end)
+			handle_spawn_result(code)
 		end)
 	elseif sysname == "Linux" then
 		if M.config.system_background_detection then
@@ -188,14 +191,7 @@ local function get_system_background(callback, fallback)
 					stdout:close()
 					stderr:close()
 					handle:close()
-
-					vim.schedule(function()
-						if code == 0 then
-							callback("dark")
-						else
-							callback("light")
-						end
-					end)
+					handle_spawn_result(code)
 				end)
 			elseif type(M.config.system_background_detection) == "function" then
 				-- Call the function.
@@ -281,8 +277,8 @@ local function apply_colorscheme()
 	if background == "system" then
 		-- Compute fallback outside of callback
 		local fallback = M.config.default.background ~= "system" and M.config.default.background
-			or vim.o.background
-			or "dark"
+				or vim.o.background
+				or "dark"
 		get_system_background(function(bg)
 			set_colorscheme(bg)
 		end, fallback)
@@ -349,9 +345,9 @@ local function start_system_appearance_timer()
 
 	-- Compute fallback outside of loop callback
 	local fallback = previous_background
-		or M.config.default.background ~= "system" and M.config.default.background
-		or vim.o.background
-		or "dark"
+			or M.config.default.background ~= "system" and M.config.default.background
+			or vim.o.background
+			or "dark"
 
 	appearance_timer = uv.new_timer()
 	appearance_timer:start(0, M.config.refresh_time, function()
@@ -394,8 +390,8 @@ function M.toggle()
 		if background == "system" then
 			-- Compute fallback outside of callback
 			local fallback = M.config.default.background ~= "system" and M.config.default.background
-				or vim.o.background
-				or "dark"
+					or vim.o.background
+					or "dark"
 			get_system_background(function(bg)
 				previous_background = bg
 				vim.schedule(function()
