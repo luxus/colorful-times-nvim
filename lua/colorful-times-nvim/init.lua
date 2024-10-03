@@ -113,6 +113,9 @@ end
 
 -- Pre-process and cache parsed schedule times.
 local function preprocess_schedule()
+	if #parsed_schedule > 0 then
+		return -- Skip re-parsing if already parsed.
+	end
 	parsed_schedule = {}
 	for idx, slot in ipairs(M.config.schedule) do
 		local start_time = parse_time(slot.start)
