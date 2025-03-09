@@ -141,6 +141,7 @@ local function get_system_background(callback, fallback)
             handle_spawn_result(code)
         end)
     elseif sysname == "Linux" then
+        -- Linux system detection - attempt to auto-detect desktop environment if no custom detection provided
         if M.config.system_background_detection then
             local background = nil
             if type(M.config.system_background_detection) == "string" then
@@ -174,9 +175,53 @@ local function get_system_background(callback, fallback)
                 end)
             end
         else
-            -- Use the fallback background if no detection method is provided.
-            vim.schedule(function()
-                callback(fallback)
+            -- Attempt to auto-detect desktop environment without user configuration
+            local kde_detection = [[
+              if command -v kreadconfig6 &> /dev/null; then
+                kreadconfig6 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark' || 
+                kreadconfig6 --group 'KDE' --key 'LookAndFeelPackage' | grep -q 'dark'
+              elif command -v kreadconfig5 &> /dev/null; then
+                kreadconfig5 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark'
+              else
+                exit 1  # Default to light if commands not available
+              fi
+            ]]
+            
+            local gnome_detection = [[
+              if command -v gsettings &> /dev/null; then
+                gsettings get org.gnome.desktop.interface color-scheme | grep -q 'prefer-dark'
+              else
+                exit 1  # Default to light if commands not available
+              fi
+            ]]
+            
+            -- Try to auto-detect desktop environment and dark mode
+            local stdout = get_uv().new_pipe(false)
+            local stderr = get_uv().new_pipe(false)
+            local handle
+            handle = get_uv().spawn("sh", {
+                args = { "-c", [[
+                  # Try KDE detection first
+                  if [ "$XDG_CURRENT_DESKTOP" = "KDE" ] || [ "$XDG_SESSION_DESKTOP" = "KDE" ]; then
+                    ]] .. kde_detection .. [[
+                  # Try GNOME detection
+                  elif [ "$XDG_CURRENT_DESKTOP" = "GNOME" ] || [ "$XDG_SESSION_DESKTOP" = "GNOME" ]; then
+                    ]] .. gnome_detection .. [[
+                  # If we can't determine desktop environment, default to light
+                  else
+                    exit 1
+                  fi
+                ]] },
+                stdio = { nil, stdout, stderr },
+            }, function(code, _signal)
+                -- Stop reading and close pipes.
+                stdout:read_stop()
+                stderr:read_stop()
+                stdout:close()
+                stderr:close()
+                handle:close()
+                -- Handle the result of the spawn.
+                handle_spawn_result(code)
             end)
         end
     else
@@ -223,13 +268,26 @@ local function apply_colorscheme()
             previous_background = background
             -- Set the Vim background option.
             vim.o.background = background
+            
+            -- Determine the colorscheme based on schedule or default
             local colorscheme = M.config.default.colorscheme
+            local from_schedule = false
 
             -- Determine if a schedule is active and update the colorscheme.
             if M.config.enabled then
                 local active_slot = get_active_colorscheme()
                 if active_slot then
                     colorscheme = active_slot.colorscheme
+                    from_schedule = true
+                end
+            end
+            
+            -- If not from a schedule and themes are configured for the current background,
+            -- use the appropriate theme-specific colorscheme
+            if not from_schedule and M.config.default.themes then
+                local theme_for_background = M.config.default.themes[background]
+                if theme_for_background then
+                    colorscheme = theme_for_background
                 end
             end
 
@@ -375,8 +433,15 @@ function M.toggle()
                 previous_background = bg
                 vim.schedule(function()
                     vim.o.background = bg
+                    
+                    -- Determine which colorscheme to use based on background
+                    local colorscheme = M.config.default.colorscheme
+                    if M.config.default.themes and M.config.default.themes[bg] then
+                        colorscheme = M.config.default.themes[bg]
+                    end
+                    
                     pcall(function()
-                        vim.cmd.colorscheme(M.config.default.colorscheme)
+                        vim.cmd.colorscheme(colorscheme)
                     end)
                     vim.notify("Colorful Times disabled.", vim.log.levels.INFO)
                 end)
@@ -385,8 +450,15 @@ function M.toggle()
             -- Apply the default colorscheme directly.
             previous_background = background
             vim.o.background = background
+            
+            -- Determine which colorscheme to use based on background
+            local colorscheme = M.config.default.colorscheme
+            if M.config.default.themes and M.config.default.themes[background] then
+                colorscheme = M.config.default.themes[background]
+            end
+            
             pcall(function()
-                vim.cmd.colorscheme(M.config.default.colorscheme)
+                vim.cmd.colorscheme(colorscheme)
             end)
             vim.notify("Colorful Times disabled.", vim.log.levels.INFO)
         end
@@ -431,5 +503,6 @@ M.get_system_background = get_system_background
 M.get_active_colorscheme = get_active_colorscheme
 M.apply_colorscheme = apply_colorscheme
 M.get_parsed_schedule = function() return parsed_schedule end
+M.get_current_time = get_current_time
 
 return M

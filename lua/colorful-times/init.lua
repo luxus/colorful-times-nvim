@@ -34,9 +34,14 @@ end
 ---@field colorscheme string Name of the colorscheme to apply.
 ---@field background? string "light", "dark", "system", or nil.
 
+---@class ColorfulTimes.ThemeConfig
+---@field light string|nil Colorscheme to use in light mode (nil to use default).
+---@field dark string|nil Colorscheme to use in dark mode (nil to use default).
+
 ---@class ColorfulTimes.DefaultConfig
 ---@field colorscheme string Default colorscheme when no schedule matches.
 ---@field background string "light", "dark", or "system".
+---@field themes ColorfulTimes.ThemeConfig Default themes for light/dark mode.
 
 ---@class ColorfulTimes.Config
 ---@field schedule ColorfulTimes.ScheduleEntry[] Array of schedule entries.
@@ -52,6 +57,10 @@ M.config = {
 	default = {
 		colorscheme = "default",
 		background = "system",
+		themes = {
+			light = nil, -- When nil, uses default.colorscheme
+			dark = nil,  -- When nil, uses default.colorscheme
+		},
 	},
 	enabled = true,
 	refresh_time = 5000,              -- Default refresh time in milliseconds

@@ -6,6 +6,7 @@ A Neovim plugin that automatically changes your colorscheme based on time schedu
 
 - **Time-based colorscheme switching**: Automatically changes colorschemes based on your schedule
 - **System appearance detection**: Follows your OS light/dark mode settings
+- **Light/dark mode themes**: Set different default themes for light and dark mode
 - **Overnight schedule support**: Handles schedules that cross midnight
 - **Low startup impact**: Uses lazy loading to minimize Neovim startup time
 - **Customizable refresh times**: Control how often system appearance is checked
@@ -62,6 +63,10 @@ require('colorful-times').setup({
   default = {
     colorscheme = "default",   -- fallback colorscheme
     background = "system",     -- "light", "dark", or "system" to follow OS settings
+    themes = {
+      light = "dayfox",        -- optional: specific theme for light mode (nil to use default)
+      dark = "nightfox",       -- optional: specific theme for dark mode (nil to use default)
+    },
   },
   
   -- Other options
@@ -69,7 +74,8 @@ require('colorful-times').setup({
   refresh_time = 5000,         -- check system appearance every 5 seconds (in ms)
   
   -- Optional: custom command for Linux system background detection
-  -- system_background_detection = "gsettings get org.gnome.desktop.interface color-scheme | grep -q 'prefer-dark'"
+  -- KDE and GNOME are auto-detected, only needed for other desktop environments
+  -- system_background_detection = "custom-script-or-command-that-returns-exit-code-0-for-dark"
 })
 ```
 
@@ -92,7 +98,8 @@ end, {})
 ## System Appearance Detection
 
 - **macOS**: Automatically detects system appearance
-- **Linux**: Requires custom detection command in configuration
+- **Linux**: Auto-detects KDE and GNOME desktop environments
+  - For other desktop environments, provide a custom detection command
 - **Windows**: Not yet supported (contributions welcome!)
 
 ### Custom Linux Detection Example
@@ -102,9 +109,16 @@ For GNOME-based desktops:
 system_background_detection = "gsettings get org.gnome.desktop.interface color-scheme | grep -q 'prefer-dark'"
 ```
 
-For KDE:
+For KDE Plasma (automatic detection for Plasma 5 or 6):
 ```lua
-system_background_detection = "kreadconfig5 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark'"
+system_background_detection = [[
+  if command -v kreadconfig6 &> /dev/null; then
+    kreadconfig6 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark' || 
+    kreadconfig6 --group 'KDE' --key 'LookAndFeelPackage' | grep -q 'dark'
+  else
+    kreadconfig5 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark'
+  fi
+]]
 ```
 
 You can also provide a function that returns "light" or "dark":
