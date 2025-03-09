@@ -7,6 +7,7 @@ A Neovim plugin that automatically changes your colorscheme based on time schedu
 - **Time-based colorscheme switching**: Automatically changes colorschemes based on your schedule
 - **System appearance detection**: Follows your OS light/dark mode settings
 - **Light/dark mode themes**: Set different default themes for light and dark mode
+- **Specific colorscheme support**: Configure separate colorschemes for light and dark modes
 - **Overnight schedule support**: Handles schedules that cross midnight
 - **Low startup impact**: Uses lazy loading to minimize Neovim startup time
 - **Customizable refresh times**: Control how often system appearance is checked
@@ -64,8 +65,8 @@ require('colorful-times').setup({
     colorscheme = "default",   -- fallback colorscheme
     background = "system",     -- "light", "dark", or "system" to follow OS settings
     themes = {
-      light = "dayfox",        -- optional: specific theme for light mode (nil to use default)
-      dark = "nightfox",       -- optional: specific theme for dark mode (nil to use default)
+      light = "dayfox",        -- specific theme for light mode (nil to use default)
+      dark = "nightfox",       -- specific theme for dark mode (nil to use default)
     },
   },
   
@@ -93,6 +94,50 @@ end, {})
 vim.api.nvim_create_user_command('ColorfulTimesReload', function()
   require('colorful-times').reload()
 end, {})
+```
+
+## Colorscheme Configuration
+
+### Specific Dark and Light Mode Colorschemes
+
+You can configure separate colorschemes for dark and light modes using the `themes` option:
+
+```lua
+default = {
+  colorscheme = "default",  -- Fallback colorscheme
+  background = "system",    -- Use system appearance detection
+  themes = {
+    light = "dayfox",       -- Colorscheme to use in light mode
+    dark = "nightfox",      -- Colorscheme to use in dark mode
+  },
+}
+```
+
+When the system or schedule switches between light and dark mode, the plugin will automatically apply the corresponding colorscheme. This is especially useful when:
+
+- You're using system appearance detection and want different themes for each mode
+- You have a default schedule that should respect system settings but with your preferred themes
+- You want consistent theming across different lighting conditions
+
+### Schedule-Based Colorschemes
+
+You can also set specific colorschemes for different times of day in your schedule:
+
+```lua
+schedule = {
+  {
+    start = "08:00",          -- 8 AM
+    stop = "18:00",           -- 6 PM
+    colorscheme = "morning",  -- Light colorscheme for daytime
+    background = "light",
+  },
+  {
+    start = "18:00",          -- 6 PM
+    stop = "08:00",           -- 8 AM next day
+    colorscheme = "evening",  -- Dark colorscheme for nighttime
+    background = "dark",
+  },
+},
 ```
 
 ## System Appearance Detection

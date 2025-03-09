@@ -3,7 +3,7 @@
 ## Build and Test Commands
 - Run all tests: `nvim --headless -c "lua require('plenary.test_harness').test_directory('tests')" -c 'q'`
 - Run single test: `nvim --headless -c "lua require('plenary.test_harness').test_directory('tests', {filter='PATTERN'})" -c 'q'`
-- No explicit linter configured (consider adding luacheck or stylua)
+- Format code: `stylua lua/ tests/`
 
 ## Code Style Guidelines
 - **Naming**: snake_case for variables and functions, PascalCase for classes/types

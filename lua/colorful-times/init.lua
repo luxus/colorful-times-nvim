@@ -13,16 +13,16 @@ local M = {}
 -- Create metatable for lazy loading functions
 -- This prevents function definitions from being loaded until actually called
 local _mt = {}
-local _exported_fns = {'setup', 'toggle', 'reload'}
+local _exported_fns = { "setup", "toggle", "reload" }
 
 function _mt.__index(_, key)
-    -- If it's a function we want to lazy-load
-    if vim.tbl_contains(_exported_fns, key) then
-        -- Load the implementation module on first access
-        require('colorful-times.impl')
-        -- Return the now-defined function
-        return M[key]
-    end
+	-- If it's a function we want to lazy-load
+	if vim.tbl_contains(_exported_fns, key) then
+		-- Load the implementation module on first access
+		require("colorful-times.impl")
+		-- Return the now-defined function
+		return M[key]
+	end
 end
 
 -- Type definitions for documentation purposes only
@@ -59,11 +59,11 @@ M.config = {
 		background = "system",
 		themes = {
 			light = nil, -- When nil, uses default.colorscheme
-			dark = nil,  -- When nil, uses default.colorscheme
+			dark = nil, -- When nil, uses default.colorscheme
 		},
 	},
 	enabled = true,
-	refresh_time = 5000,              -- Default refresh time in milliseconds
+	refresh_time = 5000, -- Default refresh time in milliseconds
 	system_background_detection = nil, -- Custom system background detection for Linux.
 }
 
@@ -94,7 +94,7 @@ M.config = {
 ---@field background string "light", "dark", or "system".
 
 -- The plugin uses lazy loading for all implementation details
--- Function definitions (setup, toggle, reload) are loaded on-demand 
+-- Function definitions (setup, toggle, reload) are loaded on-demand
 -- from the impl.lua module when they are first called
 --
 -- This significantly reduces the startup impact by avoiding:
