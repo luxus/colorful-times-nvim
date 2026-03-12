@@ -39,6 +39,9 @@ end
 ---@param time_str string Time string in "HH:MM" format.
 ---@return integer|nil Minutes since midnight or nil if invalid.
 local function parse_time(time_str)
+	if type(time_str) ~= "string" then
+		return nil
+	end
 	local hour, min = time_str:match("^(%d%d?):(%d%d)$")
 	if not hour or not min then
 		return nil
