@@ -43,6 +43,9 @@ end
 ---@param time_str string Time string in "HH:MM" format.
 ---@return integer|nil Minutes since midnight or nil if invalid.
 local function parse_time(time_str)
+	if type(time_str) ~= "string" then
+		return nil
+	end
 	local hour, min = time_str:match("^(%d%d?):(%d%d)$")
 	if not hour or not min then
 		return nil
@@ -103,33 +106,21 @@ local function get_system_background(callback, fallback)
 
 	if sysname == "Darwin" then
 		-- macOS implementation using 'defaults' command.
-		local stdout = uv.new_pipe(false)
-		local stderr = uv.new_pipe(false)
 		local handle
 		handle = uv.spawn("defaults", {
 			args = { "read", "-g", "AppleInterfaceStyle" },
-			stdio = { nil, stdout, stderr },
+			stdio = { nil, nil, nil },
 		}, function(code, _signal)
-			-- Stop reading and close pipes.
-			stdout:read_stop()
-			stderr:read_stop()
-			stdout:close()
-			stderr:close()
 			handle:close()
 			-- Handle the result of the spawn.
 			handle_spawn_result(code)
 		end)
-		-- Ensure pipes are being read to prevent blocking.
-		stdout:read_start(function(_, _) end)
-		stderr:read_start(function(_, _) end)
 	elseif sysname == "Linux" then
 		-- Linux system detection - attempt to auto-detect desktop environment if no custom detection provided
 		if M.config.system_background_detection then
 			local background = nil
 			if type(M.config.system_background_detection) == "table" then
 				-- Execute a custom command safely from a table of arguments.
-				local stdout = uv.new_pipe(false)
-				local stderr = uv.new_pipe(false)
 				local handle
 				local cmd = M.config.system_background_detection[1]
 				local args = {}
@@ -138,20 +129,12 @@ local function get_system_background(callback, fallback)
 				end
 				handle = uv.spawn(cmd, {
 					args = args,
-					stdio = { nil, stdout, stderr },
+					stdio = { nil, nil, nil },
 				}, function(code, _signal)
-					-- Stop reading and close pipes.
-					stdout:read_stop()
-					stderr:read_stop()
-					stdout:close()
-					stderr:close()
 					handle:close()
 					-- Handle the result of the spawn.
 					handle_spawn_result(code)
 				end)
-				-- Ensure pipes are being read to prevent blocking.
-				stdout:read_start(function(_, _) end)
-				stderr:read_start(function(_, _) end)
 			elseif type(M.config.system_background_detection) == "function" then
 				-- Call the user-provided function to detect the background.
 				background = M.config.system_background_detection()
@@ -219,28 +202,18 @@ local function get_system_background(callback, fallback)
 			end
 
 			-- Try to auto-detect dark mode
-			local stdout = uv.new_pipe(false)
-			local stderr = uv.new_pipe(false)
 			local handle
 			handle = uv.spawn("sh", {
 				args = {
 					"-c",
 					script,
 				},
-				stdio = { nil, stdout, stderr },
+				stdio = { nil, nil, nil },
 			}, function(code, _signal)
-				-- Stop reading and close pipes.
-				stdout:read_stop()
-				stderr:read_stop()
-				stdout:close()
-				stderr:close()
 				handle:close()
 				-- Handle the result of the spawn.
 				handle_spawn_result(code)
 			end)
-			-- Ensure pipes are being read to prevent blocking.
-			stdout:read_start(function(_, _) end)
-			stderr:read_start(function(_, _) end)
 		end
 	else
 		-- Use the fallback background for unsupported operating systems.
