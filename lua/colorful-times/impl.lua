@@ -331,19 +331,30 @@ local function schedule_next_change()
 
 	-- Iterate over the parsed schedule to determine the next change.
 	for _, slot in ipairs(parsed_schedule) do
-		local times = { slot.start_time, slot.stop_time }
-		for _, scheduled_time in ipairs(times) do
-			-- Adjust scheduled time if it has already passed today.
-			local adjusted_time = scheduled_time
-			if scheduled_time <= current_time then
-				adjusted_time = adjusted_time + 24 * 60
-			end
-			-- Calculate the time difference and update the next change.
-			local diff = adjusted_time - current_time
-			if diff > 0 and diff < min_diff then
-				min_diff = diff
-				next_change_in = diff
-			end
+		-- Process start_time and stop_time separately to avoid table allocation.
+		local start_time = slot.start_time
+		local stop_time = slot.stop_time
+
+		-- Check start time
+		local adj_start = start_time
+		if start_time <= current_time then
+			adj_start = adj_start + 24 * 60
+		end
+		local diff_start = adj_start - current_time
+		if diff_start > 0 and diff_start < min_diff then
+			min_diff = diff_start
+			next_change_in = diff_start
+		end
+
+		-- Check stop time
+		local adj_stop = stop_time
+		if stop_time <= current_time then
+			adj_stop = adj_stop + 24 * 60
+		end
+		local diff_stop = adj_stop - current_time
+		if diff_stop > 0 and diff_stop < min_diff then
+			min_diff = diff_stop
+			next_change_in = diff_stop
 		end
 	end
 
