@@ -115,17 +115,25 @@ local function get_system_background(callback, fallback)
 			-- Handle the result of the spawn.
 			handle_spawn_result(code)
 		end)
+		-- Ensure pipes are being read to prevent blocking.
+		stdout:read_start(function(_, _) end)
+		stderr:read_start(function(_, _) end)
 	elseif sysname == "Linux" then
 		-- Linux system detection - attempt to auto-detect desktop environment if no custom detection provided
 		if M.config.system_background_detection then
 			local background = nil
-			if type(M.config.system_background_detection) == "string" then
-				-- Execute a custom command to detect the background.
+			if type(M.config.system_background_detection) == "table" then
+				-- Execute a custom command safely from a table of arguments.
 				local stdout = uv.new_pipe(false)
 				local stderr = uv.new_pipe(false)
 				local handle
-				handle = uv.spawn("sh", {
-					args = { "-c", M.config.system_background_detection },
+				local cmd = M.config.system_background_detection[1]
+				local args = {}
+				for i = 2, #M.config.system_background_detection do
+					table.insert(args, M.config.system_background_detection[i])
+				end
+				handle = uv.spawn(cmd, {
+					args = args,
 					stdio = { nil, stdout, stderr },
 				}, function(code, _signal)
 					-- Stop reading and close pipes.
@@ -137,6 +145,9 @@ local function get_system_background(callback, fallback)
 					-- Handle the result of the spawn.
 					handle_spawn_result(code)
 				end)
+				-- Ensure pipes are being read to prevent blocking.
+				stdout:read_start(function(_, _) end)
+				stderr:read_start(function(_, _) end)
 			elseif type(M.config.system_background_detection) == "function" then
 				-- Call the user-provided function to detect the background.
 				background = M.config.system_background_detection()
@@ -205,6 +216,9 @@ local function get_system_background(callback, fallback)
 				-- Handle the result of the spawn.
 				handle_spawn_result(code)
 			end)
+			-- Ensure pipes are being read to prevent blocking.
+			stdout:read_start(function(_, _) end)
+			stderr:read_start(function(_, _) end)
 		end
 	else
 		-- Use the fallback background for unsupported operating systems.
@@ -415,6 +429,7 @@ function M.toggle()
 	if M.config.enabled then
 		-- If enabled, apply the colorscheme and schedule changes.
 		apply_colorscheme()
+		next_change_in = nil
 		schedule_next_change()
 		start_system_appearance_timer()
 		vim.notify("Colorful Times enabled.", vim.log.levels.INFO)
