@@ -29,7 +29,7 @@ end
 
 -- Function to stop and close timers
 local function stop_and_close_timer(timer_handle)
-	if timer_handle then
+	if timer_handle and not timer_handle:is_closing() then
 		timer_handle:stop()
 		timer_handle:close()
 	end
@@ -318,6 +318,7 @@ end
 local function schedule_next_change()
 	-- Stop existing timer if any.
 	stop_and_close_timer(timer)
+	timer = nil
 
 	-- Return early if the plugin is disabled.
 	if not M.config.enabled then
@@ -363,6 +364,7 @@ end
 local function start_system_appearance_timer()
 	-- Stop and close any existing appearance timer.
 	stop_and_close_timer(appearance_timer)
+	appearance_timer = nil
 
 	-- Use cached OS info to avoid expensive calls
 	local sysname = M._cached_sysname or uv.os_uname().sysname or "Unknown"
@@ -415,7 +417,9 @@ end
 local function disable_plugin()
 	-- If disabled, stop timers and apply default colorscheme.
 	stop_and_close_timer(timer)
+	timer = nil
 	stop_and_close_timer(appearance_timer)
+	appearance_timer = nil
 	-- Apply the default colorscheme and background.
 	local background = M.config.default.background
 	if background == "system" then
