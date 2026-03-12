@@ -48,6 +48,45 @@ describe("ColorfulTimes Plugin", function()
 			assert.is_number(parsed_schedule[2].start_time)
 			assert.is_number(parsed_schedule[2].stop_time)
 		end)
+
+		it("logs an error for invalid schedule times", function()
+			-- Mock vim.api.nvim_err_writeln
+			local original_err_writeln = vim.api.nvim_err_writeln
+			local captured_errors = {}
+			vim.api.nvim_err_writeln = function(msg)
+				table.insert(captured_errors, msg)
+			end
+
+			-- Test with invalid start time
+			colorful_times.config.schedule = {
+				{ start = "invalid", stop = "18:00", colorscheme = "test" },
+			}
+			colorful_times.preprocess_schedule()
+			assert.are.equal(1, #captured_errors)
+			assert.are.equal("Invalid time format in schedule entry 1", captured_errors[1])
+
+			-- Test with invalid stop time
+			captured_errors = {}
+			colorful_times.config.schedule = {
+				{ start = "06:00", stop = "25:00", colorscheme = "test" },
+			}
+			colorful_times.preprocess_schedule()
+			assert.are.equal(1, #captured_errors)
+			assert.are.equal("Invalid time format in schedule entry 1", captured_errors[1])
+
+			-- Test multiple entries and correct index reporting
+			captured_errors = {}
+			colorful_times.config.schedule = {
+				{ start = "06:00", stop = "18:00", colorscheme = "valid" },
+				{ start = "invalid", stop = "06:00", colorscheme = "invalid" },
+			}
+			colorful_times.preprocess_schedule()
+			assert.are.equal(1, #captured_errors)
+			assert.are.equal("Invalid time format in schedule entry 2", captured_errors[1])
+
+			-- Restore original function
+			vim.api.nvim_err_writeln = original_err_writeln
+		end)
 	end)
 
 	-- Test for system background detection callback handling
