@@ -81,6 +81,105 @@ local function get_current_time()
 	return (date_table.hour * 60) + date_table.min
 end
 
+-- Helper function to detect system background on macOS
+---@param handle_spawn_result fun(code: integer) Callback function to handle the spawn result
+local function detect_darwin_background(handle_spawn_result)
+	local handle
+	handle = uv.spawn("defaults", {
+		args = { "read", "-g", "AppleInterfaceStyle" },
+		stdio = { nil, nil, nil },
+	}, function(code, _signal)
+		handle:close()
+		-- Handle the result of the spawn.
+		handle_spawn_result(code)
+	end)
+end
+
+-- Helper function to detect system background on Linux using custom configuration
+---@param callback fun(background: string) Callback function to execute with the background value
+---@param fallback string The fallback background value
+---@param handle_spawn_result fun(code: integer) Callback function to handle the spawn result
+local function detect_linux_custom_background(callback, fallback, handle_spawn_result)
+	local background = nil
+	if type(M.config.system_background_detection) == "table" then
+		-- Execute a custom command safely from a table of arguments.
+		local handle
+		local cmd = M.config.system_background_detection[1]
+		local args = {}
+		for i = 2, #M.config.system_background_detection do
+			table.insert(args, M.config.system_background_detection[i])
+		end
+		handle = uv.spawn(cmd, {
+			args = args,
+			stdio = { nil, nil, nil },
+		}, function(code, _signal)
+			handle:close()
+			-- Handle the result of the spawn.
+			handle_spawn_result(code)
+		end)
+	elseif type(M.config.system_background_detection) == "function" then
+		-- Call the user-provided function to detect the background.
+		background = M.config.system_background_detection()
+		vim.schedule(function()
+			callback(background)
+		end)
+	else
+		-- Use the fallback background if detection is not configured.
+		vim.schedule(function()
+			callback(fallback)
+		end)
+	end
+end
+
+-- Helper function to auto-detect system background on Linux
+---@param handle_spawn_result fun(code: integer) Callback function to handle the spawn result
+local function detect_linux_auto_background(handle_spawn_result)
+	-- Attempt to auto-detect desktop environment without user configuration
+	local kde_detection = [[
+      if command -v kreadconfig6 &> /dev/null; then
+        kreadconfig6 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark' ||
+        kreadconfig6 --group 'KDE' --key 'LookAndFeelPackage' | grep -q 'dark'
+      elif command -v kreadconfig5 &> /dev/null; then
+        kreadconfig5 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark'
+      else
+        exit 1  # Default to light if commands not available
+      fi
+    ]]
+
+	local gnome_detection = [[
+      if command -v gsettings &> /dev/null; then
+        gsettings get org.gnome.desktop.interface color-scheme | grep -q 'prefer-dark'
+      else
+        exit 1  # Default to light if commands not available
+      fi
+    ]]
+
+	-- Try to auto-detect desktop environment and dark mode
+	local handle
+	handle = uv.spawn("sh", {
+		args = {
+			"-c",
+			[[
+          # Try KDE detection first
+          if [ "$XDG_CURRENT_DESKTOP" = "KDE" ] || [ "$XDG_SESSION_DESKTOP" = "KDE" ]; then
+            ]] .. kde_detection .. [[
+          # Try GNOME detection
+          elif [ "$XDG_CURRENT_DESKTOP" = "GNOME" ] || [ "$XDG_SESSION_DESKTOP" = "GNOME" ]; then
+            ]] .. gnome_detection .. [[
+          # If we can't determine desktop environment, default to light
+          else
+            exit 1
+          fi
+        ]],
+		},
+		stdio = { nil, nil, nil },
+	}, function(code, _signal)
+		handle:close()
+		-- Handle the result of the spawn.
+		handle_spawn_result(code)
+	end)
+end
+
 -- Function to get the system background.
 ---@param callback fun(background: string) Callback function to execute with the background value.
 ---@param fallback string The fallback background value.
@@ -101,97 +200,13 @@ local function get_system_background(callback, fallback)
 	end
 
 	if sysname == "Darwin" then
-		-- macOS implementation using 'defaults' command.
-		local handle
-		handle = uv.spawn("defaults", {
-			args = { "read", "-g", "AppleInterfaceStyle" },
-			stdio = { nil, nil, nil },
-		}, function(code, _signal)
-			handle:close()
-			-- Handle the result of the spawn.
-			handle_spawn_result(code)
-		end)
+		detect_darwin_background(handle_spawn_result)
 	elseif sysname == "Linux" then
 		-- Linux system detection - attempt to auto-detect desktop environment if no custom detection provided
 		if M.config.system_background_detection then
-			local background = nil
-			if type(M.config.system_background_detection) == "table" then
-				-- Execute a custom command safely from a table of arguments.
-				local handle
-				local cmd = M.config.system_background_detection[1]
-				local args = {}
-				for i = 2, #M.config.system_background_detection do
-					table.insert(args, M.config.system_background_detection[i])
-				end
-				handle = uv.spawn(cmd, {
-					args = args,
-					stdio = { nil, nil, nil },
-				}, function(code, _signal)
-					handle:close()
-					-- Handle the result of the spawn.
-					handle_spawn_result(code)
-				end)
-			elseif type(M.config.system_background_detection) == "function" then
-				-- Call the user-provided function to detect the background.
-				background = M.config.system_background_detection()
-				vim.schedule(function()
-					callback(background)
-				end)
-			else
-				-- Use the fallback background if detection is not configured.
-				vim.schedule(function()
-					callback(fallback)
-				end)
-			end
+			detect_linux_custom_background(callback, fallback, handle_spawn_result)
 		else
-			-- Attempt to auto-detect desktop environment without user configuration
-			local kde_detection = [[
-              if command -v kreadconfig6 &> /dev/null; then
-                kreadconfig6 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark' || 
-                kreadconfig6 --group 'KDE' --key 'LookAndFeelPackage' | grep -q 'dark'
-              elif command -v kreadconfig5 &> /dev/null; then
-                kreadconfig5 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark'
-              else
-                exit 1  # Default to light if commands not available
-              fi
-            ]]
-
-			local gnome_detection = [[
-              if command -v gsettings &> /dev/null; then
-                gsettings get org.gnome.desktop.interface color-scheme | grep -q 'prefer-dark'
-              else
-                exit 1  # Default to light if commands not available
-              fi
-            ]]
-
-			-- Try to auto-detect desktop environment and dark mode
-			local handle
-			handle = uv.spawn("sh", {
-				args = {
-					"-c",
-					[[
-                  # Try KDE detection first
-                  if [ "$XDG_CURRENT_DESKTOP" = "KDE" ] || [ "$XDG_SESSION_DESKTOP" = "KDE" ]; then
-                    ]]
-						.. kde_detection
-						.. [[
-                  # Try GNOME detection
-                  elif [ "$XDG_CURRENT_DESKTOP" = "GNOME" ] || [ "$XDG_SESSION_DESKTOP" = "GNOME" ]; then
-                    ]]
-						.. gnome_detection
-						.. [[
-                  # If we can't determine desktop environment, default to light
-                  else
-                    exit 1
-                  fi
-                ]],
-				},
-				stdio = { nil, nil, nil },
-			}, function(code, _signal)
-				handle:close()
-				-- Handle the result of the spawn.
-				handle_spawn_result(code)
-			end)
+			detect_linux_auto_background(handle_spawn_result)
 		end
 	else
 		-- Use the fallback background for unsupported operating systems.
@@ -525,6 +540,9 @@ end
 M.parse_time = parse_time
 M.preprocess_schedule = preprocess_schedule
 M.get_system_background = get_system_background
+M.detect_darwin_background = detect_darwin_background
+M.detect_linux_custom_background = detect_linux_custom_background
+M.detect_linux_auto_background = detect_linux_auto_background
 M.get_active_colorscheme = get_active_colorscheme
 M.apply_colorscheme = apply_colorscheme
 M.get_parsed_schedule = function()
