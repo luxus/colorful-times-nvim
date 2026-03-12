@@ -68,24 +68,6 @@ M.config = {
 }
 
 -- Type definitions for LSP documentation
----@class uv_timer_t
----@field start fun(self: uv_timer_t, timeout: number, repeat_interval: number, callback: function)
----@field stop fun(self: uv_timer_t)
----@field close fun(self: uv_timer_t)
-
----@class uv_pipe_t
----@field read_start fun(self: uv_pipe_t, callback: function)
----@field read_stop fun(self: uv_pipe_t)
----@field close fun(self: uv_pipe_t)
-
----@class uv_process_t
----@field close fun(self: uv_process_t)
-
----@class uv
----@field new_timer fun(): uv_timer_t
----@field new_pipe fun(ipc: boolean): uv_pipe_t
----@field spawn fun(path: string, options: table, on_exit: fun(code: number, signal: number)): uv_process_t
----@field os_uname fun(): { sysname: string }
 
 ---@class ColorfulTimes.ParsedScheduleEntry
 ---@field start_time integer Start time in minutes since midnight.
@@ -98,10 +80,9 @@ M.config = {
 -- from the impl.lua module when they are first called
 --
 -- This significantly reduces the startup impact by avoiding:
--- 1. Loading vim.loop (uv) until needed
--- 2. Doing any initialization work during require
--- 3. Parsing schedules or executing system calls on startup
--- 4. Defining large functions during the initial module load
+-- 1. Doing any initialization work during require
+-- 2. Parsing schedules or executing system calls on startup
+-- 3. Defining large functions during the initial module load
 
 -- Apply the metatable to M for lazy loading
 setmetatable(M, _mt)

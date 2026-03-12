@@ -1,183 +1,66 @@
 # Colorful Times
 
-A Neovim plugin that automatically changes your colorscheme based on time schedules, system appearance settings, or manual toggling.
-
-## Features
-
-- **Time-based colorscheme switching**: Automatically changes colorschemes based on your schedule
-- **System appearance detection**: Follows your OS light/dark mode settings
-- **Light/dark mode themes**: Set different default themes for light and dark mode
-- **Specific colorscheme support**: Configure separate colorschemes for light and dark modes
-- **Overnight schedule support**: Handles schedules that cross midnight
-- **Low startup impact**: Uses lazy loading to minimize Neovim startup time
-- **Customizable refresh times**: Control how often system appearance is checked
-- **Manual controls**: Toggle the plugin on/off as needed
+A Neovim plugin that automatically changes your colorscheme based on a schedule, system settings, or manually. Optimized for zero-blocking startup time using modern Neovim `vim.uv` APIs.
 
 ## Requirements
 
-- Neovim >= 0.5.0
-- For testing: [plenary.nvim](https://github.com/nvim-lua/plenary.nvim)
+- Neovim >= 0.10.0
+
+## Features
+
+- **Blazing Fast Startup**: Zero-blocking background initialization. Instantly applies fallback themes so your UI is rendered immediately, then seamlessly corrects the colorscheme if the background asynchronous system detection yields a different preference.
+- **System Background Detection**: Supports automatic system dark/light mode detection on macOS and Linux (via auto-detect for KDE/GNOME or custom commands).
+- **Time-based Scheduling**: Pre-process schedules to automatically change colorschemes based on the time of day.
+- **Theme Fallbacks**: Configure distinct default colorschemes for both light and dark system backgrounds.
 
 ## Installation
-
-Using [packer.nvim](https://github.com/wbthomason/packer.nvim):
-
-```lua
-use {
-  'luxus/colorful-times-nvim',
-  requires = { 'nvim-lua/plenary.nvim' }, -- Only needed for running tests
-}
-```
 
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
-  'luxus/colorful-times-nvim',
-  dependencies = { 'nvim-lua/plenary.nvim' }, -- Only needed for running tests
-},
-```
-
-## Setup and Configuration
-
-Add to your Neovim configuration:
-
-```lua
-require('colorful-times').setup({
-  -- Schedule entries for when to change colorschemes
-  schedule = {
-    {
-      start = "08:00", -- 8 AM
-      stop = "18:00",  -- 6 PM
-      colorscheme = "morning", -- your light colorscheme
-      background = "light",    -- optional: "light", "dark", or "system"
-    },
-    {
-      start = "18:00", -- 6 PM
-      stop = "08:00",  -- 8 AM (next day)
-      colorscheme = "evening", -- your dark colorscheme
-      background = "dark",     -- optional
-    },
-  },
-  
-  -- Default settings when no schedule is active
-  default = {
-    colorscheme = "default",   -- fallback colorscheme
-    background = "system",     -- "light", "dark", or "system" to follow OS settings
-    themes = {
-      light = "dayfox",        -- specific theme for light mode (nil to use default)
-      dark = "nightfox",       -- specific theme for dark mode (nil to use default)
-    },
-  },
-  
-  -- Other options
-  enabled = true,              -- enable/disable the plugin
-  refresh_time = 5000,         -- check system appearance every 5 seconds (in ms)
-  
-  -- Optional: custom command for Linux system background detection
-  -- KDE and GNOME are auto-detected, only needed for other desktop environments
-  -- system_background_detection = "custom-script-or-command-that-returns-exit-code-0-for-dark"
-})
-```
-
-## Commands
-
-Add these to your configuration for manual control:
-
-```lua
--- Toggle plugin on/off
-vim.api.nvim_create_user_command('ColorfulTimesToggle', function()
-  require('colorful-times').toggle()
-end, {})
-
--- Reload configuration
-vim.api.nvim_create_user_command('ColorfulTimesReload', function()
-  require('colorful-times').reload()
-end, {})
-```
-
-## Colorscheme Configuration
-
-### Specific Dark and Light Mode Colorschemes
-
-You can configure separate colorschemes for dark and light modes using the `themes` option:
-
-```lua
-default = {
-  colorscheme = "default",  -- Fallback colorscheme
-  background = "system",    -- Use system appearance detection
-  themes = {
-    light = "dayfox",       -- Colorscheme to use in light mode
-    dark = "nightfox",      -- Colorscheme to use in dark mode
-  },
+  "username/colorful-times",
+  lazy = false, -- ensure it loads on start to apply colorschemes
+  priority = 1000,
+  opts = {
+    -- see Configuration section below
+  }
 }
 ```
 
-When the system or schedule switches between light and dark mode, the plugin will automatically apply the corresponding colorscheme. This is especially useful when:
+## Configuration
 
-- You're using system appearance detection and want different themes for each mode
-- You have a default schedule that should respect system settings but with your preferred themes
-- You want consistent theming across different lighting conditions
-
-### Schedule-Based Colorschemes
-
-You can also set specific colorschemes for different times of day in your schedule:
+The plugin comes with the following default configuration:
 
 ```lua
-schedule = {
-  {
-    start = "08:00",          -- 8 AM
-    stop = "18:00",           -- 6 PM
-    colorscheme = "morning",  -- Light colorscheme for daytime
-    background = "light",
+require('colorful-times').setup({
+  enabled = true,
+  refresh_time = 5000, -- Default refresh time in milliseconds to check system appearance
+  system_background_detection = nil, -- Custom command (string) or function returning 'dark'/'light' for Linux
+  
+  default = {
+    colorscheme = "default",
+    background = "system", -- "light", "dark", or "system"
+    themes = {
+      light = nil, -- colorscheme to use when background is light
+      dark = nil,  -- colorscheme to use when background is dark
+    },
   },
-  {
-    start = "18:00",          -- 6 PM
-    stop = "08:00",           -- 8 AM next day
-    colorscheme = "evening",  -- Dark colorscheme for nighttime
-    background = "dark",
+  
+  -- Schedule allows defining specific colorschemes at times of day
+  schedule = {
+    -- { start = "06:00", stop = "18:00", colorscheme = "morning_theme", background = "light" },
+    -- { start = "18:00", stop = "06:00", colorscheme = "night_theme", background = "dark" },
   },
-},
+})
 ```
 
-## System Appearance Detection
+## API
 
-- **macOS**: Automatically detects system appearance
-- **Linux**: Auto-detects KDE and GNOME desktop environments
-  - For other desktop environments, provide a custom detection command
-- **Windows**: Not yet supported (contributions welcome!)
+- `require('colorful-times').setup(opts)`: Initialize the plugin with options.
+- `require('colorful-times').toggle()`: Toggle the plugin enabled/disabled state.
+- `require('colorful-times').reload()`: Reload the configuration and re-apply colorschemes.
 
-### Custom Linux Detection Example
+## Performance Note
 
-For GNOME-based desktops:
-```lua
-system_background_detection = "gsettings get org.gnome.desktop.interface color-scheme | grep -q 'prefer-dark'"
-```
-
-For KDE Plasma (automatic detection for Plasma 5 or 6):
-```lua
-system_background_detection = [[
-  if command -v kreadconfig6 &> /dev/null; then
-    kreadconfig6 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark' || 
-    kreadconfig6 --group 'KDE' --key 'LookAndFeelPackage' | grep -q 'dark'
-  else
-    kreadconfig5 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark'
-  fi
-]]
-```
-
-You can also provide a function that returns "light" or "dark":
-```lua
-system_background_detection = function()
-  -- Custom detection logic
-  return "dark" -- or "light"
-end
-```
-
-## License
-
-MIT
-
-## Contributing
-
-Contributions are welcome! Feel free to submit issues or pull requests.
+This plugin has been obsessed over to guarantee that it won't impact your Neovim start time. Lazy loading defers expensive module imports and function evaluations, while asynchronous `vim.uv` pipes spawn subprocesses to read your system background theme *after* the initial editor UI is unblocked.

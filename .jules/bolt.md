@@ -5,3 +5,7 @@
 ## 2024-05-15 - GitHub Actions Cache 400 Error
 **Learning:** Older versions of `leafo/gh-actions-lua` (like v9) use Node 20 and an outdated artifact API which returns `400 Bad Request` when trying to save or restore cache on modern runner images (ubuntu-latest 24.04+).
 **Action:** Always update GitHub actions to the latest major version (`actions/checkout@v4`, `leafo/gh-actions-lua@v10`) when encountering cache 400 errors or Node 20 deprecation warnings.
+
+## 2024-05-15 - Zero-blocking Neovim Startup with vim.uv
+**Learning:** Neovim plugins that rely on system commands (e.g., getting OS light/dark mode) can block the Neovim UI rendering if done synchronously or via `vim.defer_fn()`.
+**Action:** Always instantly apply a fallback configuration synchronously during `setup()` to avoid UI flashes. Execute the system check completely asynchronously using `vim.uv.spawn` and only trigger a colorscheme update if the detected background differs from the fallback. Also replace legacy `vim.loop` with modern `vim.uv` (Neovim 0.10+).
