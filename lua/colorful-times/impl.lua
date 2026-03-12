@@ -29,7 +29,7 @@ end
 
 -- Function to stop and close timers
 local function stop_and_close_timer(timer_handle)
-	if timer_handle then
+	if timer_handle and not timer_handle:is_closing() then
 		timer_handle:stop()
 		timer_handle:close()
 	end
@@ -332,6 +332,7 @@ end
 local function schedule_next_change()
 	-- Stop existing timer if any.
 	stop_and_close_timer(timer)
+	timer = nil
 
 	-- Return early if the plugin is disabled.
 	if not M.config.enabled then
@@ -377,6 +378,7 @@ end
 local function start_system_appearance_timer()
 	-- Stop and close any existing appearance timer.
 	stop_and_close_timer(appearance_timer)
+	appearance_timer = nil
 
 	-- Use cached OS info to avoid expensive calls
 	local sysname = M._cached_sysname or uv.os_uname().sysname or "Unknown"
@@ -416,6 +418,79 @@ local function start_system_appearance_timer()
 	end)
 end
 
+-- Helper function to enable the plugin.
+local function enable_plugin()
+	-- If enabled, apply the colorscheme and schedule changes.
+	apply_colorscheme()
+	schedule_next_change()
+	start_system_appearance_timer()
+	vim.notify("Colorful Times enabled.", vim.log.levels.INFO)
+end
+
+-- Helper function to disable the plugin.
+local function disable_plugin()
+	-- If disabled, stop timers and apply default colorscheme.
+	stop_and_close_timer(timer)
+	timer = nil
+	stop_and_close_timer(appearance_timer)
+	appearance_timer = nil
+	-- Apply the default colorscheme and background.
+	local background = M.config.default.background
+	if background == "system" then
+		-- Compute fallback background value.
+		local fallback = M.config.default.background ~= "system" and M.config.default.background
+			or vim.o.background
+			or "dark"
+
+		-- Immediately apply fallback default colorscheme
+		previous_background = fallback
+		vim.o.background = fallback
+
+		local fallback_colorscheme = M.config.default.colorscheme
+		if M.config.default.themes and M.config.default.themes[fallback] then
+			fallback_colorscheme = M.config.default.themes[fallback]
+		end
+		pcall(function()
+			vim.cmd.colorscheme(fallback_colorscheme)
+		end)
+
+		-- Get the system background and apply the default colorscheme if it differs
+		get_system_background(function(bg)
+			if bg ~= fallback then
+				previous_background = bg
+				vim.schedule(function()
+					vim.o.background = bg
+
+					-- Determine which colorscheme to use based on background
+					local colorscheme = M.config.default.colorscheme
+					if M.config.default.themes and M.config.default.themes[bg] then
+						colorscheme = M.config.default.themes[bg]
+					end
+
+					pcall(function()
+						vim.cmd.colorscheme(colorscheme)
+					end)
+				end)
+			end
+		end, fallback)
+	else
+		-- Apply the default colorscheme directly.
+		previous_background = background
+		vim.o.background = background
+
+		-- Determine which colorscheme to use based on background
+		local colorscheme = M.config.default.colorscheme
+		if M.config.default.themes and M.config.default.themes[background] then
+			colorscheme = M.config.default.themes[background]
+		end
+
+		pcall(function()
+			vim.cmd.colorscheme(colorscheme)
+		end)
+	end
+	vim.notify("Colorful Times disabled.", vim.log.levels.INFO)
+end
+
 -- Reload the plugin configuration.
 function M.reload()
 	-- Re-initialize the plugin with the current configuration.
@@ -427,72 +502,9 @@ function M.toggle()
 	-- Toggle the enabled state of the plugin.
 	M.config.enabled = not M.config.enabled
 	if M.config.enabled then
-		-- If enabled, apply the colorscheme and schedule changes.
-		apply_colorscheme()
-		next_change_in = nil
-		schedule_next_change()
-		start_system_appearance_timer()
-		vim.notify("Colorful Times enabled.", vim.log.levels.INFO)
+		enable_plugin()
 	else
-		-- If disabled, stop timers and apply default colorscheme.
-		stop_and_close_timer(timer)
-		stop_and_close_timer(appearance_timer)
-		-- Apply the default colorscheme and background.
-		local background = M.config.default.background
-		if background == "system" then
-			-- Compute fallback background value.
-			local fallback = M.config.default.background ~= "system" and M.config.default.background
-				or vim.o.background
-				or "dark"
-
-			-- Immediately apply fallback default colorscheme
-			previous_background = fallback
-			vim.o.background = fallback
-
-			local fallback_colorscheme = M.config.default.colorscheme
-			if M.config.default.themes and M.config.default.themes[fallback] then
-				fallback_colorscheme = M.config.default.themes[fallback]
-			end
-			pcall(function()
-				vim.cmd.colorscheme(fallback_colorscheme)
-			end)
-
-			-- Get the system background and apply the default colorscheme if it differs
-			get_system_background(function(bg)
-				if bg ~= fallback then
-					previous_background = bg
-					vim.schedule(function()
-						vim.o.background = bg
-
-						-- Determine which colorscheme to use based on background
-						local colorscheme = M.config.default.colorscheme
-						if M.config.default.themes and M.config.default.themes[bg] then
-							colorscheme = M.config.default.themes[bg]
-						end
-
-						pcall(function()
-							vim.cmd.colorscheme(colorscheme)
-						end)
-					end)
-				end
-			end, fallback)
-			vim.notify("Colorful Times disabled.", vim.log.levels.INFO)
-		else
-			-- Apply the default colorscheme directly.
-			previous_background = background
-			vim.o.background = background
-
-			-- Determine which colorscheme to use based on background
-			local colorscheme = M.config.default.colorscheme
-			if M.config.default.themes and M.config.default.themes[background] then
-				colorscheme = M.config.default.themes[background]
-			end
-
-			pcall(function()
-				vim.cmd.colorscheme(colorscheme)
-			end)
-			vim.notify("Colorful Times disabled.", vim.log.levels.INFO)
-		end
+		disable_plugin()
 	end
 end
 
