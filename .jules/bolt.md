@@ -9,3 +9,7 @@
 ## 2024-05-15 - Zero-blocking Neovim Startup with vim.uv
 **Learning:** Neovim plugins that rely on system commands (e.g., getting OS light/dark mode) can block the Neovim UI rendering if done synchronously or via `vim.defer_fn()`.
 **Action:** Always instantly apply a fallback configuration synchronously during `setup()` to avoid UI flashes. Execute the system check completely asynchronously using `vim.uv.spawn` and only trigger a colorscheme update if the detected background differs from the fallback. Also replace legacy `vim.loop` with modern `vim.uv` (Neovim 0.10+).
+
+## 2024-05-16 - Heap Allocations in Hot Loops
+**Learning:** Creating temporary tables (e.g., `local t = { val1, val2 }`) inside a loop causes per-iteration heap allocations. While modern GCs are fast, this creates unnecessary memory pressure and increases GC pause frequency in performance-sensitive code.
+**Action:** Replace small iteration tables inside loops with unrolled logic or sequential local variable checks. In Lua, direct variable access and sequential comparisons are significantly faster than table creation and `ipairs` iteration.
