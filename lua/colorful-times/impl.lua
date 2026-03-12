@@ -201,7 +201,7 @@ local function get_system_background(callback, fallback)
             ]]
 			end
 
-			-- Try to auto-detect dark mode
+			-- Try to auto-detect desktop environment and dark mode
 			local handle
 			handle = uv.spawn("sh", {
 				args = {
