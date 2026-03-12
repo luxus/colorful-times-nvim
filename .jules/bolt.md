@@ -17,3 +17,8 @@ To measure the impact, we ran a simple benchmark script that invoked `get_system
 - **Optimized**: 49.64 ms average time per call (97.92 ms total wall clock time for 100 iterations)
 
 **Result**: We observed a ~7-8% reduction in average call time and a clear reduction in total execution time simply by omitting the unneeded I/O setup and teardown for subprocesses. This yields a faster response when probing the system theme and saves memory allocations for the plugin.
+
+## Optimization: Cache Linux Desktop Environment Detection
+- **What:** Cached `XDG_CURRENT_DESKTOP` and `XDG_SESSION_DESKTOP` checks using native Lua `os.getenv` instead of spawning a shell script to determine the Linux Desktop Environment (DE) on every timer tick.
+- **Why:** To eliminate repetitive, expensive shell executions for static environment variables that do not change during a user's session. Spawning sub-processes in Neovim has non-trivial overhead.
+- **Learnings:** Prefer native Lua functions to check static system environment variables and cache the results to bypass branching and repetitive executions in spawned processes.

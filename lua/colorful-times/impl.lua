@@ -18,6 +18,10 @@ local timer
 ---@type uv_timer_t|nil
 local appearance_timer
 
+-- Cache for Linux Desktop Environment detection
+---@type string|nil
+local cached_linux_de
+
 -- Keep track of the previous system background.
 ---@type string|nil
 local previous_background
@@ -145,46 +149,64 @@ local function get_system_background(callback, fallback)
 			end
 		else
 			-- Attempt to auto-detect desktop environment without user configuration
-			local kde_detection = [[
+
+			-- Only check OS env once per session to determine DE
+			if cached_linux_de == nil then
+				local xdg_current = os.getenv("XDG_CURRENT_DESKTOP") or ""
+				local xdg_session = os.getenv("XDG_SESSION_DESKTOP") or ""
+
+				if xdg_current == "KDE" or xdg_session == "KDE" then
+					cached_linux_de = "KDE"
+				elseif xdg_current == "GNOME" or xdg_session == "GNOME" then
+					cached_linux_de = "GNOME"
+				else
+					cached_linux_de = "UNKNOWN"
+					vim.schedule(function()
+						vim.notify(
+							"Colorful Times: Could not detect supported Linux Desktop Environment (KDE/GNOME). Falling back to default background.",
+							vim.log.levels.WARN
+						)
+					end)
+				end
+			end
+
+			if cached_linux_de == "UNKNOWN" then
+				-- We already know we can't detect it, so don't spawn a process
+				vim.schedule(function()
+					callback(fallback)
+				end)
+				return
+			end
+
+			local script = ""
+
+			if cached_linux_de == "KDE" then
+				script = [[
               if command -v kreadconfig6 &> /dev/null; then
                 kreadconfig6 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark' || 
                 kreadconfig6 --group 'KDE' --key 'LookAndFeelPackage' | grep -q 'dark'
               elif command -v kreadconfig5 &> /dev/null; then
                 kreadconfig5 --group 'General' --key 'ColorScheme' --file 'kdeglobals' | grep -q 'Dark'
               else
-                exit 1  # Default to light if commands not available
+                sh -c 'exit 1'  # Default to light if commands not available
               fi
             ]]
-
-			local gnome_detection = [[
+			elseif cached_linux_de == "GNOME" then
+				script = [[
               if command -v gsettings &> /dev/null; then
                 gsettings get org.gnome.desktop.interface color-scheme | grep -q 'prefer-dark'
               else
-                exit 1  # Default to light if commands not available
+                sh -c 'exit 1'  # Default to light if commands not available
               fi
             ]]
+			end
 
 			-- Try to auto-detect desktop environment and dark mode
 			local handle
 			handle = uv.spawn("sh", {
 				args = {
 					"-c",
-					[[
-                  # Try KDE detection first
-                  if [ "$XDG_CURRENT_DESKTOP" = "KDE" ] || [ "$XDG_SESSION_DESKTOP" = "KDE" ]; then
-                    ]]
-						.. kde_detection
-						.. [[
-                  # Try GNOME detection
-                  elif [ "$XDG_CURRENT_DESKTOP" = "GNOME" ] || [ "$XDG_SESSION_DESKTOP" = "GNOME" ]; then
-                    ]]
-						.. gnome_detection
-						.. [[
-                  # If we can't determine desktop environment, default to light
-                  else
-                    exit 1
-                  fi
-                ]],
+					script,
 				},
 				stdio = { nil, nil, nil },
 			}, function(code, _signal)
