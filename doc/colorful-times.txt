@@ -1,0 +1,74 @@
+*colorful-times.txt*   For Neovim version 0.10+      Last change: 2024
+
+==============================================================================
+COLORFUL-TIMES                                             *colorful-times*
+
+Colorful Times is a fast and simple Neovim plugin that automatically sets
+your colorscheme based on your system appearance (light/dark mode) or based
+on a time-of-day schedule. It is highly optimized, ensuring zero impact on
+Neovim startup times via asynchronous `vim.uv` module spawning.
+
+==============================================================================
+CONTENTS                                                   *colorful-times-contents*
+
+1. Introduction .......................... |colorful-times-introduction|
+2. Configuration ......................... |colorful-times-configuration|
+3. Commands & API ........................ |colorful-times-api|
+
+==============================================================================
+1. Introduction                                        *colorful-times-introduction*
+
+This plugin aims to seamlessly match your terminal or OS's dark/light
+preference dynamically as well as manage daytime/nighttime colorschemes.
+
+It achieves zero-blocking startup overhead by:
+1. Returning early with fallback defaults during the initial require block.
+2. Synchronously initializing only necessary states to avoid UI flash.
+3. Checking actual system preferences using non-blocking asynchronous `uv.spawn` handles.
+
+==============================================================================
+2. Configuration                                       *colorful-times-configuration*
+
+To initialize and setup the plugin, use `require('colorful-times').setup(opts)`.
+
+Default configuration:
+>lua
+    require("colorful-times").setup({
+      enabled = true,
+      refresh_time = 5000, -- milliseconds
+      system_background_detection = nil, -- Optional command/function for Linux
+
+      default = {
+        colorscheme = "default",
+        background = "system", -- "light", "dark", or "system"
+        themes = {
+          light = nil,
+          dark = nil,
+        },
+      },
+      schedule = {},
+    })
+<
+
+Schedule syntax:
+>lua
+    schedule = {
+      { start = "08:00", stop = "18:00", colorscheme = "day_theme", background = "light" },
+      { start = "18:00", stop = "08:00", colorscheme = "night_theme", background = "dark" },
+    }
+<
+
+==============================================================================
+3. Commands & API                                      *colorful-times-api*
+
+`require('colorful-times').setup(opts)`
+    Initializes the plugin and applies the current theme.
+
+`require('colorful-times').toggle()`
+    Toggles the plugin enabled/disabled state.
+
+`require('colorful-times').reload()`
+    Reloads the plugin configuration.
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:

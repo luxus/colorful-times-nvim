@@ -5,33 +5,8 @@
 local M = require("colorful-times")
 
 -- Import vim.loop only when needed
-local uv
-local function get_uv()
-	if not uv then
-		uv = vim.loop
-	end
-	return uv
-end
-
--- Define uv types for the Lua language server.
----@class uv_timer_t
----@field start fun(self: uv_timer_t, timeout: number, repeat_interval: number, callback: function)
----@field stop fun(self: uv_timer_t)
----@field close fun(self: uv_timer_t)
-
----@class uv_pipe_t
----@field read_start fun(self: uv_pipe_t, callback: function)
----@field read_stop fun(self: uv_pipe_t)
----@field close fun(self: uv_pipe_t)
-
----@class uv_process_t
----@field close fun(self: uv_process_t)
-
----@class uv
----@field new_timer fun(): uv_timer_t
----@field new_pipe fun(ipc: boolean): uv_pipe_t
----@field spawn fun(path: string, options: table, on_exit: fun(code: number, signal: number)): uv_process_t
----@field os_uname fun(): { sysname: string }
+-- Use vim.uv available in Neovim >= 0.10
+local uv = vim.uv
 
 -- Cache for parsed schedule times.
 ---@type ColorfulTimes.ParsedScheduleEntry[]
@@ -49,7 +24,7 @@ local previous_background
 
 -- Function to create timers
 local function create_timer()
-	return get_uv().new_timer()
+	return uv.new_timer()
 end
 
 -- Function to stop and close timers
@@ -108,7 +83,7 @@ end
 ---@param fallback string The fallback background value.
 local function get_system_background(callback, fallback)
 	-- Cache the OS info - only need to get this once
-	local sysname = M._cached_sysname or get_uv().os_uname().sysname or "Unknown"
+	local sysname = M._cached_sysname or uv.os_uname().sysname or "Unknown"
 	M._cached_sysname = sysname
 
 	-- Function to handle the result of the system background command.
@@ -124,10 +99,10 @@ local function get_system_background(callback, fallback)
 
 	if sysname == "Darwin" then
 		-- macOS implementation using 'defaults' command.
-		local stdout = get_uv().new_pipe(false)
-		local stderr = get_uv().new_pipe(false)
+		local stdout = uv.new_pipe(false)
+		local stderr = uv.new_pipe(false)
 		local handle
-		handle = get_uv().spawn("defaults", {
+		handle = uv.spawn("defaults", {
 			args = { "read", "-g", "AppleInterfaceStyle" },
 			stdio = { nil, stdout, stderr },
 		}, function(code, _signal)
@@ -146,10 +121,10 @@ local function get_system_background(callback, fallback)
 			local background = nil
 			if type(M.config.system_background_detection) == "string" then
 				-- Execute a custom command to detect the background.
-				local stdout = get_uv().new_pipe(false)
-				local stderr = get_uv().new_pipe(false)
+				local stdout = uv.new_pipe(false)
+				local stderr = uv.new_pipe(false)
 				local handle
-				handle = get_uv().spawn("sh", {
+				handle = uv.spawn("sh", {
 					args = { "-c", M.config.system_background_detection },
 					stdio = { nil, stdout, stderr },
 				}, function(code, _signal)
@@ -196,10 +171,10 @@ local function get_system_background(callback, fallback)
             ]]
 
 			-- Try to auto-detect desktop environment and dark mode
-			local stdout = get_uv().new_pipe(false)
-			local stderr = get_uv().new_pipe(false)
+			local stdout = uv.new_pipe(false)
+			local stderr = uv.new_pipe(false)
 			local handle
-			handle = get_uv().spawn("sh", {
+			handle = uv.spawn("sh", {
 				args = {
 					"-c",
 					[[
@@ -318,13 +293,20 @@ local function apply_colorscheme()
 	end
 
 	if background == "system" then
-		-- Compute fallback background value.
+		-- Determine the initial fallback background value.
 		local fallback = M.config.default.background ~= "system" and M.config.default.background
 			or vim.o.background
 			or "dark"
-		-- Get the system background and apply the colorscheme accordingly.
+
+		-- Immediately apply the fallback background to avoid blocking Neovim startup.
+		-- This guarantees instant colorscheme application before UI rendering.
+		set_colorscheme(fallback)
+
+		-- Query the true system background asynchronously. Only apply if it differs.
 		get_system_background(function(bg)
-			set_colorscheme(bg)
+			if previous_background ~= bg then
+				set_colorscheme(bg)
+			end
 		end, fallback)
 	else
 		-- Apply the colorscheme directly if not using system background.
@@ -383,7 +365,7 @@ local function start_system_appearance_timer()
 	stop_and_close_timer(appearance_timer)
 
 	-- Use cached OS info to avoid expensive calls
-	local sysname = M._cached_sysname or get_uv().os_uname().sysname or "Unknown"
+	local sysname = M._cached_sysname or uv.os_uname().sysname or "Unknown"
 	M._cached_sysname = sysname
 	if sysname ~= "Darwin" and sysname ~= "Linux" then
 		-- Only macOS and Linux are supported for system appearance detection.
@@ -447,24 +429,39 @@ function M.toggle()
 			local fallback = M.config.default.background ~= "system" and M.config.default.background
 				or vim.o.background
 				or "dark"
-			-- Get the system background and apply the default colorscheme.
+
+			-- Immediately apply fallback default colorscheme
+			previous_background = fallback
+			vim.o.background = fallback
+
+			local fallback_colorscheme = M.config.default.colorscheme
+			if M.config.default.themes and M.config.default.themes[fallback] then
+				fallback_colorscheme = M.config.default.themes[fallback]
+			end
+			pcall(function()
+				vim.cmd.colorscheme(fallback_colorscheme)
+			end)
+
+			-- Get the system background and apply the default colorscheme if it differs
 			get_system_background(function(bg)
-				previous_background = bg
-				vim.schedule(function()
-					vim.o.background = bg
+				if bg ~= fallback then
+					previous_background = bg
+					vim.schedule(function()
+						vim.o.background = bg
 
-					-- Determine which colorscheme to use based on background
-					local colorscheme = M.config.default.colorscheme
-					if M.config.default.themes and M.config.default.themes[bg] then
-						colorscheme = M.config.default.themes[bg]
-					end
+						-- Determine which colorscheme to use based on background
+						local colorscheme = M.config.default.colorscheme
+						if M.config.default.themes and M.config.default.themes[bg] then
+							colorscheme = M.config.default.themes[bg]
+						end
 
-					pcall(function()
-						vim.cmd.colorscheme(colorscheme)
+						pcall(function()
+							vim.cmd.colorscheme(colorscheme)
+						end)
 					end)
-					vim.notify("Colorful Times disabled.", vim.log.levels.INFO)
-				end)
+				end
 			end, fallback)
+			vim.notify("Colorful Times disabled.", vim.log.levels.INFO)
 		else
 			-- Apply the default colorscheme directly.
 			previous_background = background
@@ -500,18 +497,16 @@ function M.setup(opts)
 		end
 	end
 
-	-- Defer all initialization work to minimize startup impact
-	vim.defer_fn(function()
-		-- Pre-process the schedule based on the updated configuration.
-		preprocess_schedule()
+	-- Pre-process the schedule based on the updated configuration.
+	preprocess_schedule()
 
-		-- Apply the colorscheme after schedule is processed.
-		apply_colorscheme()
+	-- Try to get background synchronously on startup if possible
+	-- so it applies instantly before Neovim reveals the UI
+	apply_colorscheme()
 
-		-- Start timers after initialization.
-		schedule_next_change()
-		start_system_appearance_timer()
-	end, 0)
+	-- Start timers asynchronously
+	schedule_next_change()
+	start_system_appearance_timer()
 end
 
 -- Make functions visible for tests but not exported to users
