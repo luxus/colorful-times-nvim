@@ -13,3 +13,8 @@
 ## 2024-05-16 - Heap Allocations in Hot Loops
 **Learning:** Creating temporary tables (e.g., `local t = { val1, val2 }`) inside a loop causes per-iteration heap allocations. While modern GCs are fast, this creates unnecessary memory pressure and increases GC pause frequency in performance-sensitive code.
 **Action:** Replace small iteration tables inside loops with unrolled logic or sequential local variable checks. In Lua, direct variable access and sequential comparisons are significantly faster than table creation and `ipairs` iteration.
+
+## Optimization: Cache Linux Desktop Environment Detection
+- **What:** Cached `XDG_CURRENT_DESKTOP` and `XDG_SESSION_DESKTOP` checks using native Lua `os.getenv` instead of spawning a shell script to determine the Linux Desktop Environment (DE) on every timer tick.
+- **Why:** To eliminate repetitive, expensive shell executions for static environment variables that do not change during a user's session. Spawning sub-processes in Neovim has non-trivial overhead.
+- **Learnings:** Prefer native Lua functions to check static system environment variables and cache the results to bypass branching and repetitive executions in spawned processes.
