@@ -19,6 +19,7 @@ describe("ColorfulTimes Plugin", function()
 			assert.is_nil(colorful_times.parse_time("24:00"))
 			assert.is_nil(colorful_times.parse_time("12:60"))
 			assert.is_nil(colorful_times.parse_time("invalid"))
+			assert.is_nil(colorful_times.parse_time(nil))
 		end)
 	end)
 
@@ -83,6 +84,24 @@ describe("ColorfulTimes Plugin", function()
 			colorful_times.preprocess_schedule()
 			assert.are.equal(1, #captured_errors)
 			assert.are.equal("Invalid time format in schedule entry 2", captured_errors[1])
+
+			-- Test with missing start time
+			captured_errors = {}
+			colorful_times.config.schedule = {
+				{ stop = "18:00", colorscheme = "test" },
+			}
+			colorful_times.preprocess_schedule()
+			assert.are.equal(1, #captured_errors)
+			assert.are.equal("Invalid time format in schedule entry 1", captured_errors[1])
+
+			-- Test with missing stop time
+			captured_errors = {}
+			colorful_times.config.schedule = {
+				{ start = "06:00", colorscheme = "test" },
+			}
+			colorful_times.preprocess_schedule()
+			assert.are.equal(1, #captured_errors)
+			assert.are.equal("Invalid time format in schedule entry 1", captured_errors[1])
 
 			-- Restore original function
 			vim.api.nvim_err_writeln = original_err_writeln
