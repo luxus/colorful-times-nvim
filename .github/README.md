@@ -36,7 +36,9 @@ The plugin comes with the following default configuration:
 require('colorful-times').setup({
   enabled = true,
   refresh_time = 5000, -- Default refresh time in milliseconds to check system appearance
-  system_background_detection = nil, -- Custom command (string) or function returning 'dark'/'light' for Linux
+  -- Custom command (table) or function returning 'dark'/'light' for Linux
+  -- Table format: { "command", "arg1", "arg2" }
+  system_background_detection = nil,
   
   default = {
     colorscheme = "default",

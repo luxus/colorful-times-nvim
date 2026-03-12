@@ -48,7 +48,7 @@ end
 ---@field default ColorfulTimes.DefaultConfig Default colorscheme and background.
 ---@field enabled boolean Whether the plugin is enabled.
 ---@field refresh_time integer The refresh time in milliseconds for checking the system background.
----@field system_background_detection? string|fun():string Custom command or function to detect system background on Linux.
+---@field system_background_detection? string[]|fun():string Custom command or function to detect system background on Linux.
 
 --- Plugin configuration.
 ---@type ColorfulTimes.Config
@@ -64,7 +64,7 @@ M.config = {
 	},
 	enabled = true,
 	refresh_time = 5000, -- Default refresh time in milliseconds
-	system_background_detection = nil, -- Custom system background detection for Linux.
+	system_background_detection = nil, -- Custom system background detection (table of strings or function) for Linux.
 }
 
 -- Type definitions for LSP documentation
