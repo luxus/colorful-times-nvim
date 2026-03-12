@@ -399,12 +399,24 @@ local function start_system_appearance_timer()
 	-- Create a new timer to check the system appearance.
 	appearance_timer = create_timer()
 	appearance_timer:start(0, M.config.refresh_time, function()
-		-- Get the system background periodically and apply the colorscheme if it changes.
-		get_system_background(function(current_background)
-			if current_background ~= previous_background then
-				apply_colorscheme()
+		-- Determine if we even need to poll the system
+		local active_background = M.config.default.background
+		if M.config.enabled then
+			local active_slot = get_active_colorscheme()
+			if active_slot then
+				active_background = active_slot.background
 			end
-		end, fallback)
+		end
+
+		-- Only spawn processes if we actually care about the system background
+		if active_background == "system" then
+			-- Get the system background periodically and apply the colorscheme if it changes.
+			get_system_background(function(current_background)
+				if current_background ~= previous_background then
+					apply_colorscheme()
+				end
+			end, fallback)
+		end
 	end)
 end
 
