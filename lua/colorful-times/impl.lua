@@ -81,8 +81,9 @@ end
 -- Get current time in minutes since midnight.
 ---@return integer Minutes since midnight.
 local function get_current_time()
-	local date_table = os.date("*t")
-	return (date_table.hour * 60) + date_table.min
+	-- Use numeric conversion to avoid table allocation from os.date("*t")
+	local hm = tonumber(os.date("%H%M"))
+	return math.floor(hm / 100) * 60 + (hm % 100)
 end
 
 -- Function to get the system background.
