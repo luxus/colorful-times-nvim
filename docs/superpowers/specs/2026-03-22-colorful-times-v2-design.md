@@ -134,8 +134,8 @@ Owns all mutable state (timers, `previous_background`). Loaded on first `M.setup
 ```lua
 core.setup(opts)     -- merge opts + state.load(), preprocess, apply, start timers
 core.enable()        -- start timers, apply colorscheme
-core.disable()       -- stop timers; immediately applies M.config.default.colorscheme +
-                     --   M.config.default.background (system → async detect, then set)
+core.disable()       -- stop timers; calls apply_colorscheme() directly with M.config.enabled = false
+                     --   (same two-phase logic: sync fallback first, async system detect if needed)
 core.toggle()        -- flip M.config.enabled, call enable/disable
 core.reload()        -- re-run setup with current M.config (does NOT call state.load() again;
                      --   caller is responsible for mutating M.config before calling reload)
@@ -147,7 +147,7 @@ core.apply_colorscheme()  -- two-phase:
 
 Timer logic:
 - **Schedule timer**: fires at the exact minute of the next schedule boundary (via `schedule.next_change_at`). One-shot, re-armed after each fire.
-- **Appearance poll timer**: repeating, interval = `M.config.refresh_time`. Skipped when `M.config.default.background ~= "system"` AND no active schedule slot uses `"system"`. **Paused on `FocusLost`, resumed on `FocusGained`** via autocmds registered once in `core.setup()`.
+- **Appearance poll timer**: repeating, interval = `M.config.refresh_time`. On every tick, re-evaluates whether system background detection is needed: skip the `system.get_background` call if no active schedule slot uses `"system"` AND `M.config.default.background ~= "system"`. This evaluation happens on every tick (not at timer-start time), so it automatically reflects config changes after `core.reload()`. **Paused on `FocusLost`, resumed on `FocusGained`** via autocmds registered once in `core.setup()`.
 
 State:
 ```lua
@@ -186,6 +186,8 @@ State file schema:
 ```
 
 Only `enabled` and `schedule` are persisted. All other config (themes, refresh_time, etc.) always come from `init.lua` / the user's `setup()` call.
+
+`state.merge()` treats a missing `schedule` key in stored as "no override" (user's config schedule is kept). An empty array `[]` wins and clears the user's schedule — this allows the TUI to explicitly remove all entries. Similarly, a missing `enabled` key leaves the user's config value intact.
 
 ### 3.6 `tui.lua`
 
@@ -304,7 +306,8 @@ require("colorful-times").reload()      -- reload config
 
 New in v2:
 ```lua
-require("colorful-times").open()        -- open TUI (also :ColorfulTimes)
+require("colorful-times").open()  -- open TUI; same as :ColorfulTimes command
+                                  -- lazy-loads tui.lua, then calls tui.open()
 ```
 
 ---
@@ -335,9 +338,11 @@ require("colorful-times").open()        -- open TUI (also :ColorfulTimes)
 
 ---
 
-## 8. Files to Delete
+## 8. Files to Delete / Superseded
 
 - `lua/colorful-times/impl.lua` — replaced by `core.lua`, `schedule.lua`, `system.lua`, `state.lua`, `tui.lua`, `health.lua`
+- `tests/colorful_times_spec.lua` — replaced by per-module test files under `tests/`
+- `tests/minimal_init.vim` — updated to add snacks.nvim stub for TUI tests
 
 ---
 
