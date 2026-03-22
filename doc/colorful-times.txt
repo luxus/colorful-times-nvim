@@ -1,4 +1,4 @@
-*colorful-times.txt*   For Neovim version 0.10+      Last change: 2024
+*colorful-times.txt*   For Neovim version 0.12+      Last change: 2026
 
 ==============================================================================
 COLORFUL-TIMES                                             *colorful-times*
@@ -13,7 +13,9 @@ CONTENTS                                                   *colorful-times-conte
 
 1. Introduction .......................... |colorful-times-introduction|
 2. Configuration ......................... |colorful-times-configuration|
-3. Commands & API ........................ |colorful-times-api|
+3. Commands .............................. |colorful-times-commands|
+4. API ................................... |colorful-times-api|
+5. TUI ................................... |colorful-times-tui|
 
 ==============================================================================
 1. Introduction                                        *colorful-times-introduction*
@@ -24,7 +26,10 @@ preference dynamically as well as manage daytime/nighttime colorschemes.
 It achieves zero-blocking startup overhead by:
 1. Returning early with fallback defaults during the initial require block.
 2. Synchronously initializing only necessary states to avoid UI flash.
-3. Checking actual system preferences using non-blocking asynchronous `uv.spawn` handles.
+3. Checking actual system preferences using non-blocking asynchronous `uv.spawn`.
+
+Requires Neovim >= 0.12.0. Optionally uses snacks.nvim for the TUI fuzzy
+colorscheme picker (falls back to `vim.ui.*` if not available).
 
 ==============================================================================
 2. Configuration                                       *colorful-times-configuration*
@@ -35,12 +40,13 @@ Default configuration:
 >lua
     require("colorful-times").setup({
       enabled = true,
-      refresh_time = 5000, -- milliseconds
+      refresh_time = 5000,           -- milliseconds between system appearance polls
       system_background_detection = nil, -- Optional command/function for Linux
+      persist = true,                -- set false to disable TUI state persistence
 
       default = {
         colorscheme = "default",
-        background = "system", -- "light", "dark", or "system"
+        background = "system",       -- "light", "dark", or "system"
         themes = {
           light = nil,
           dark = nil,
@@ -58,17 +64,75 @@ Schedule syntax:
     }
 <
 
+`persist` ~
+    When `true` (default), TUI changes are written to:
+    `~/.local/share/nvim/colorful-times/state.json`
+    and loaded at startup. Set to `false` to opt out.
+
+`system_background_detection` ~
+    Linux only. Set to a function returning `"dark"` or `"light"`, or a
+    command table like `{ "gsettings", "get", "..." }`. On macOS and
+    known Linux DEs (KDE/GNOME) detection is automatic.
+
 ==============================================================================
-3. Commands & API                                      *colorful-times-api*
+3. Commands                                            *colorful-times-commands*
 
-`require('colorful-times').setup(opts)`
-    Initializes the plugin and applies the current theme.
+                                                       *:ColorfulTimes*
+:ColorfulTimes
+    Open the interactive schedule manager TUI.
 
-`require('colorful-times').toggle()`
+                                                       *:ColorfulTimesToggle*
+:ColorfulTimesToggle
+    Toggle the plugin enabled/disabled state.
+
+                                                       *:ColorfulTimesReload*
+:ColorfulTimesReload
+    Reload the plugin configuration from disk (re-reads state.json).
+
+                                                       *:checkhealth*
+:checkhealth colorful-times
+    Run the health check to verify Neovim version, vim.uv availability,
+    snacks.nvim presence, state directory writability, and schedule validity.
+
+==============================================================================
+4. API                                                 *colorful-times-api*
+
+`require('colorful-times').setup(opts)`                *colorful-times.setup()*
+    Initializes the plugin and applies the current theme. Merges persisted
+    state from `state.json` on top of `opts` when `persist = true`.
+
+`require('colorful-times').toggle()`                   *colorful-times.toggle()*
     Toggles the plugin enabled/disabled state.
 
-`require('colorful-times').reload()`
-    Reloads the plugin configuration.
+`require('colorful-times').reload()`                   *colorful-times.reload()*
+    Reloads the plugin configuration. Does NOT re-read state.json; callers
+    must mutate `M.config` first if they want config changes to take effect.
+
+`require('colorful-times').open()`                     *colorful-times.open()*
+    Opens the schedule manager TUI. Equivalent to `:ColorfulTimes`.
+
+==============================================================================
+5. TUI — Schedule Manager                              *colorful-times-tui*
+
+Run `:ColorfulTimes` to open a keyboard-driven floating window for managing
+your time-based colorscheme schedule.
+
+Keymaps~
+    j / <Down>    Move selection down
+    k / <Up>      Move selection up
+    a             Add a new schedule entry
+    e / <Enter>   Edit the selected entry
+    d / x         Delete the selected entry (with confirmation)
+    t             Toggle the plugin enabled/disabled
+    r             Reload configuration
+    ?             Show keymap help
+    q / <Esc>     Close the TUI
+
+When snacks.nvim is available, the colorscheme field uses a fuzzy picker
+with live preview. Without snacks.nvim, `vim.ui.select` is used instead.
+
+Changes made in the TUI are immediately applied and persisted to disk
+(unless `persist = false`).
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:
