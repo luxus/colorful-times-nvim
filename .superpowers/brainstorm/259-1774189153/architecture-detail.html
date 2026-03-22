@@ -1,0 +1,105 @@
+<h2>Full Rewrite Architecture</h2>
+<p class="subtitle">Module map for the new colorful-times. Everything below the dashed line is lazy-loaded.</p>
+
+<div class="mockup">
+  <div class="mockup-header">colorful-times — module structure</div>
+  <div class="mockup-body" style="font-family:monospace;font-size:11px;line-height:1.8;color:#c0caf5">
+
+    <div style="color:#7aa2f7;margin-bottom:6px;font-size:12px">── Entry point (always loaded) ──────────────────────</div>
+    <div style="margin-left:0;margin-bottom:12px">
+      <span style="color:#9ece6a">lua/colorful-times/init.lua</span>
+      <span style="color:#565f89"> — tiny stub: config defaults, metatable lazy-loader, type annotations</span>
+    </div>
+
+    <div style="color:#7dcfff;border-top:1px dashed #3b4261;padding-top:10px;margin-bottom:6px;font-size:12px">── Lazy-loaded modules (only loaded on first use) ──</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div style="background:#1e2030;border-radius:6px;padding:10px">
+        <div style="color:#bb9af7;font-weight:bold">core.lua</div>
+        <div style="color:#565f89;font-size:10px;margin-top:4px">State machine + timer orchestration</div>
+        <ul style="color:#a9b1d6;font-size:10px;margin:6px 0 0 0;padding-left:16px">
+          <li>enable / disable / toggle</li>
+          <li>schedule next change timer</li>
+          <li>appearance poll timer</li>
+          <li>FocusLost/FocusGained pause</li>
+          <li>apply_colorscheme()</li>
+        </ul>
+      </div>
+      <div style="background:#1e2030;border-radius:6px;padding:10px">
+        <div style="color:#bb9af7;font-weight:bold">schedule.lua</div>
+        <div style="color:#565f89;font-size:10px;margin-top:4px">Schedule parsing + matching</div>
+        <ul style="color:#a9b1d6;font-size:10px;margin:6px 0 0 0;padding-left:16px">
+          <li>parse_time() / validate()</li>
+          <li>preprocess_schedule()</li>
+          <li>get_active_entry(time)</li>
+          <li>next_change_at(time)</li>
+          <li>overnight handling</li>
+        </ul>
+      </div>
+      <div style="background:#1e2030;border-radius:6px;padding:10px">
+        <div style="color:#bb9af7;font-weight:bold">system.lua</div>
+        <div style="color:#565f89;font-size:10px;margin-top:4px">OS dark/light detection</div>
+        <ul style="color:#a9b1d6;font-size:10px;margin:6px 0 0 0;padding-left:16px">
+          <li>get_background(cb, fallback)</li>
+          <li>macOS: uv.spawn defaults</li>
+          <li>Linux: KDE / GNOME / custom</li>
+          <li>cached sysname</li>
+          <li>pauses when unfocused</li>
+        </ul>
+      </div>
+      <div style="background:#1e2030;border-radius:6px;padding:10px">
+        <div style="color:#e0af68;font-weight:bold">state.lua</div>
+        <div style="color:#565f89;font-size:10px;margin-top:4px">JSON persistence layer</div>
+        <ul style="color:#a9b1d6;font-size:10px;margin:6px 0 0 0;padding-left:16px">
+          <li>load() / save()</li>
+          <li>~/.local/share/nvim/colorful-times/state.json</li>
+          <li>TUI overrides stored here</li>
+          <li>merged over init.lua config on load</li>
+          <li>vim.json encode/decode</li>
+        </ul>
+      </div>
+      <div style="background:#1e2030;border-radius:6px;padding:10px;grid-column:span 2">
+        <div style="color:#f7768e;font-weight:bold">tui.lua  <span style="color:#565f89;font-weight:normal;font-size:10px">— requires snacks.nvim</span></div>
+        <div style="color:#565f89;font-size:10px;margin-top:4px">Table Manager TUI + forms</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px">
+          <div>
+            <div style="color:#9ece6a;font-size:10px">Schedule Table</div>
+            <ul style="color:#a9b1d6;font-size:10px;margin:4px 0 0 0;padding-left:14px">
+              <li>floating window</li>
+              <li>↑↓ navigate rows</li>
+              <li>[a] add, [e] edit, [d] delete</li>
+              <li>[t] toggle, [r] reload, [q] quit</li>
+            </ul>
+          </div>
+          <div>
+            <div style="color:#9ece6a;font-size:10px">Add / Edit Form</div>
+            <ul style="color:#a9b1d6;font-size:10px;margin:4px 0 0 0;padding-left:14px">
+              <li>Snacks.input for times</li>
+              <li>Snacks.picker for colorscheme</li>
+              <li>live preview on colorscheme select</li>
+              <li>vim.ui.select for background</li>
+            </ul>
+          </div>
+          <div>
+            <div style="color:#9ece6a;font-size:10px">Commands</div>
+            <ul style="color:#a9b1d6;font-size:10px;margin:4px 0 0 0;padding-left:14px">
+              <li>:ColorfulTimes — open TUI</li>
+              <li>:ColorfulTimesToggle</li>
+              <li>:ColorfulTimesReload</li>
+              <li>Lua API unchanged</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="color:#7aa2f7;font-size:12px;margin-bottom:6px">── Data flow ────────────────────────────────────────</div>
+    <div style="color:#a9b1d6;font-size:10px;line-height:2">
+      <span style="color:#7dcfff">setup(opts)</span> → merge opts + state.json → preprocess_schedule → apply_colorscheme → start timers<br>
+      <span style="color:#7dcfff">timer fires</span> → get_active_entry → apply_colorscheme → schedule next<br>
+      <span style="color:#7dcfff">TUI edit</span> → validate → update config → state.save() → core.reload()<br>
+      <span style="color:#7dcfff">FocusLost</span> → pause appearance poll timer (zero CPU when unfocused)
+    </div>
+
+  </div>
+</div>
