@@ -134,10 +134,15 @@ Owns all mutable state (timers, `previous_background`). Loaded on first `M.setup
 ```lua
 core.setup(opts)     -- merge opts + state.load(), preprocess, apply, start timers
 core.enable()        -- start timers, apply colorscheme
-core.disable()       -- stop timers, revert to default colorscheme
+core.disable()       -- stop timers; immediately applies M.config.default.colorscheme +
+                     --   M.config.default.background (system → async detect, then set)
 core.toggle()        -- flip M.config.enabled, call enable/disable
-core.reload()        -- re-run setup with current M.config
-core.apply_colorscheme()  -- determine active slot → set vim.o.background + vim.cmd.colorscheme
+core.reload()        -- re-run setup with current M.config (does NOT call state.load() again;
+                     --   caller is responsible for mutating M.config before calling reload)
+core.apply_colorscheme()  -- two-phase:
+                     --   1. synchronously apply fallback (previous_bg or vim.o.background or "dark")
+                     --   2. if active background == "system", call system.get_background(cb) async;
+                     --      cb calls set_colorscheme only if result differs from current previous_bg
 ```
 
 Timer logic:
@@ -213,7 +218,8 @@ Keyboard-driven floating window. Loaded only when `:ColorfulTimes` is called.
    - Items: `vim.fn.getcompletion("", "color")` — all installed colorschemes
    - `on_change` callback: applies colorscheme live as user moves through list (reverts on cancel)
 4. `vim.ui.select` → background: `["light", "dark", "system"]`
-5. On confirm: validate full entry → update `M.config.schedule` → `state.save()` → `core.reload()` → re-render table
+5. On confirm: validate full entry → update `M.config.schedule` in memory → if `persist = true`, `state.save({ enabled = M.config.enabled, schedule = M.config.schedule })` → `core.reload()` (which uses the already-mutated `M.config`, not state.json) → re-render table.
+   - `persist = false`: skips `state.save()`; `M.config.schedule` is mutated in memory but not persisted. `core.reload()` still uses the mutated in-memory config, so TUI changes are effective for the session.
 
 **Graceful degradation** (no snacks):
 - Steps 1–2: `vim.ui.input`
