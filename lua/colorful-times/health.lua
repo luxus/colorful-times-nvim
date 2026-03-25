@@ -1,6 +1,7 @@
 -- lua/colorful-times/health.lua
 local M = {}
 
+---@return nil
 function M.check()
   local health = vim.health
 
