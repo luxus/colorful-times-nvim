@@ -48,10 +48,7 @@ function M.get_background(cb, fallback)
   -- User-supplied command table (Linux)
   if type(config.system_background_detection) == "table" then
     local cmd  = config.system_background_detection[1]
-    local args = {}
-    for i = 2, #config.system_background_detection do
-      args[#args + 1] = config.system_background_detection[i]
-    end
+    local args = vim.list_slice(config.system_background_detection, 2)
     spawn_check(cmd, args, function(code)
       vim.schedule(function() cb(code == 0 and "dark" or "light") end)
     end)
