@@ -82,21 +82,19 @@ end
 ---@return integer|nil
 function M.next_change_at(parsed, time_mins)
   if #parsed == 0 then return nil end
-  local min_diff = 1440  -- max 24h
-  local found = false
+  local min_diff = nil
 
-  for _, slot in ipairs(parsed) do
-    for _, boundary in ipairs({ slot.start_time, slot.stop_time }) do
+  vim.iter(parsed):each(function(slot)
+    vim.iter({ slot.start_time, slot.stop_time }):each(function(boundary)
       local diff = boundary - time_mins
       if diff <= 0 then diff = diff + 1440 end
-      if diff < min_diff then
+      if not min_diff or diff < min_diff then
         min_diff = diff
-        found = true
       end
-    end
-  end
+    end)
+  end)
 
-  return found and min_diff or nil
+  return min_diff
 end
 
 return M
