@@ -17,7 +17,7 @@ end
 
 -- ─── Window state ────────────────────────────────────────────────────────────
 
-local state = {
+local _state = {
   buf     = nil,  -- buffer handle
   win     = nil,  -- window handle
   cursor  = 1,    -- 1-indexed selected row (into schedule)
@@ -37,10 +37,10 @@ local function pad(str, width)
 end
 
 local function render()
-  if not (state.buf and api.nvim_buf_is_valid(state.buf)) then return end
+  if not (_state.buf and api.nvim_buf_is_valid(_state.buf)) then return end
 
-  api.nvim_buf_set_option(state.buf, "modifiable", true)
-  api.nvim_buf_clear_namespace(state.buf, NS, 0, -1)
+  vim.bo[_state.buf].modifiable = true
+  api.nvim_buf_clear_namespace(_state.buf, NS, 0, -1)
 
   local lines = {}
   -- Status bar
@@ -79,14 +79,14 @@ local function render()
   table.insert(lines, HEADER_SEP)
   table.insert(lines, "  [a]dd [e]dit [d]el [t]oggle [r]eload [?]help [q]uit")
 
-  api.nvim_buf_set_lines(state.buf, 0, -1, false, lines)
-  api.nvim_buf_set_option(state.buf, "modifiable", false)
+  api.nvim_buf_set_lines(_state.buf, 0, -1, false, lines)
+  vim.bo[_state.buf].modifiable = false
 
   -- Highlight selected row (rows start at line 5 = index 4, 0-based)
   local HEADER_LINES = 4
-  local selected_line = HEADER_LINES + state.cursor - 1
+  local selected_line = HEADER_LINES + _state.cursor - 1
   if #schedule > 0 then
-    api.nvim_buf_add_highlight(state.buf, NS, "Visual", selected_line, 0, -1)
+    api.nvim_buf_add_highlight(_state.buf, NS, "Visual", selected_line, 0, -1)
   end
 end
 
@@ -208,13 +208,13 @@ local function action_add()
   entry_form(nil, function(entry)
     if not entry then return end
     table.insert(ct.config.schedule, entry)
-    state.cursor = #ct.config.schedule
+    _state.cursor = #ct.config.schedule
     save_and_reload()
   end)
 end
 
 local function action_edit()
-  local idx = state.cursor
+  local idx = _state.cursor
   if idx < 1 or idx > #ct.config.schedule then return end
   local existing = ct.config.schedule[idx]
   entry_form(existing, function(entry)
@@ -225,7 +225,7 @@ local function action_edit()
 end
 
 local function action_delete()
-  local idx = state.cursor
+  local idx = _state.cursor
   if idx < 1 or idx > #ct.config.schedule then return end
   local entry = ct.config.schedule[idx]
   vim.ui.select({ "Yes", "No" }, {
@@ -233,8 +233,8 @@ local function action_delete()
   }, function(choice)
     if choice ~= "Yes" then return end
     table.remove(ct.config.schedule, idx)
-    if state.cursor > #ct.config.schedule and state.cursor > 1 then
-      state.cursor = state.cursor - 1
+    if _state.cursor > #ct.config.schedule and _state.cursor > 1 then
+      _state.cursor = _state.cursor - 1
     end
     save_and_reload()
   end)
@@ -268,32 +268,33 @@ end
 
 local function cursor_move(delta)
   local n = math.max(1, #ct.config.schedule)
-  state.cursor = math.max(1, math.min(n, state.cursor + delta))
+  _state.cursor = math.max(1, math.min(n, _state.cursor + delta))
   render()
 end
 
 -- ─── Open / Close ─────────────────────────────────────────────────────────────
 
 local function close()
-  if state.win and api.nvim_win_is_valid(state.win) then
-    api.nvim_win_close(state.win, true)
+  if _state.win and api.nvim_win_is_valid(_state.win) then
+    api.nvim_win_close(_state.win, true)
   end
-  state.win = nil
-  state.buf = nil
+  _state.win = nil
+  _state.buf = nil
 end
 
+---@return nil
 function M.open()
-  if state.win and api.nvim_win_is_valid(state.win) then
-    api.nvim_set_current_win(state.win)
+  if _state.win and api.nvim_win_is_valid(_state.win) then
+    api.nvim_set_current_win(_state.win)
     return
   end
 
   -- Create buffer
   local buf = api.nvim_create_buf(false, true)
-  api.nvim_buf_set_option(buf, "buftype",    "nofile")
-  api.nvim_buf_set_option(buf, "bufhidden",  "wipe")
-  api.nvim_buf_set_option(buf, "filetype",   "colorful-times")
-  api.nvim_buf_set_option(buf, "modifiable", false)
+  vim.bo[buf].buftype    = "nofile"
+  vim.bo[buf].bufhidden  = "wipe"
+  vim.bo[buf].filetype   = "colorful-times"
+  vim.bo[buf].modifiable = false
 
   -- Compute window size
   local ui       = api.nvim_list_uis()[1]
@@ -315,9 +316,9 @@ function M.open()
     title_pos = "center",
   })
 
-  state.buf    = buf
-  state.win    = win
-  state.cursor = math.max(1, math.min(state.cursor, math.max(1, #ct.config.schedule)))
+  _state.buf    = buf
+  _state.win    = win
+  _state.cursor = math.max(1, math.min(_state.cursor, math.max(1, #ct.config.schedule)))
 
   -- Keymaps (buffer-local, normal mode)
   local function map(key, fn)
