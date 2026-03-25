@@ -6,10 +6,10 @@ local state    = require("colorful-times.state")
 local uv       = vim.uv
 
 -- Module-level mutable state
-local timer      -- uv_timer_t|nil  (schedule boundary timer)
-local poll_timer -- uv_timer_t|nil  (appearance poll timer)
-local previous_bg  -- string|nil
-local focused = true
+local _timer      -- uv_timer_t|nil  (schedule boundary timer)
+local _poll_timer -- uv_timer_t|nil  (appearance poll timer)
+local _previous_bg  -- string|nil
+local _focused = true
 
 local function stop_timer(t)
   if t and not t:is_closing() then
@@ -49,7 +49,7 @@ end
 
 -- Set colorscheme + background synchronously (must be called from main thread / vim.schedule)
 local function set_colorscheme(cs, bg)
-  previous_bg    = bg
+  _previous_bg    = bg
   vim.o.background = bg
   local ok, err = pcall(vim.cmd.colorscheme, cs)
   if not ok then
@@ -59,6 +59,7 @@ local function set_colorscheme(cs, bg)
 end
 
 -- Two-phase apply: sync fallback first, then async system check if needed.
+---@return nil
 function M.apply_colorscheme()
   local cs, bg = resolve_theme()
 
@@ -69,7 +70,7 @@ function M.apply_colorscheme()
   end
 
   -- System background: apply fallback immediately, then correct asynchronously
-  local fallback = previous_bg or vim.o.background or "dark"
+  local fallback = _previous_bg or vim.o.background or "dark"
   local fallback_cs = cs
   if M.config.default.themes and M.config.default.themes[fallback] then
     fallback_cs = M.config.default.themes[fallback]
@@ -80,7 +81,7 @@ function M.apply_colorscheme()
 
   -- Phase 2: async real value
   system.get_background(function(detected_bg)
-    if detected_bg ~= previous_bg then
+    if detected_bg ~= _previous_bg then
       local real_cs = cs
       if M.config.default.themes and M.config.default.themes[detected_bg] then
         real_cs = M.config.default.themes[detected_bg]
@@ -90,18 +91,18 @@ function M.apply_colorscheme()
   end, fallback)
 end
 
--- Schedule the one-shot timer to fire at the next schedule boundary
+-- Schedule the one-shot _timer to fire at the next schedule boundary
 local function arm_schedule_timer()
-  stop_timer(timer)
-  timer = nil
+  stop_timer(_timer)
+  _timer = nil
   if not M.config.enabled then return end
 
   local parsed   = schedule.preprocess(M.config.schedule, M.config.default.background)
   local diff_min = schedule.next_change_at(parsed, now_mins())
   if not diff_min then return end
 
-  timer = uv.new_timer()
-  timer:start(diff_min * 60 * 1000, 0, function()
+  _timer = uv.new_timer()
+  _timer:start(diff_min * 60 * 1000, 0, function()
     vim.schedule(function()
       M.apply_colorscheme()
       arm_schedule_timer()
@@ -117,10 +118,10 @@ local function needs_system_poll()
   return bg == "system"
 end
 
--- Start the repeating appearance poll timer
+-- Start the repeating appearance poll _timer
 local function start_poll_timer()
-  stop_timer(poll_timer)
-  poll_timer = nil
+  stop_timer(_poll_timer)
+  _poll_timer = nil
 
   local sysname = system.sysname()
   if sysname ~= "Darwin" and sysname ~= "Linux"
@@ -130,13 +131,13 @@ local function start_poll_timer()
     return  -- no system detection available
   end
 
-  local fallback = previous_bg or vim.o.background or "dark"
-  poll_timer = uv.new_timer()
-  poll_timer:start(0, M.config.refresh_time, function()
-    if not focused then return end
+  local fallback = _previous_bg or vim.o.background or "dark"
+  _poll_timer = uv.new_timer()
+  _poll_timer:start(0, M.config.refresh_time, function()
+    if not _focused then return end
     if not needs_system_poll() then return end
     system.get_background(function(detected_bg)
-      if detected_bg ~= previous_bg then
+      if detected_bg ~= _previous_bg then
         M.apply_colorscheme()
       end
     end, fallback)
@@ -151,17 +152,17 @@ local function register_focus_autocmds()
   local grp = vim.api.nvim_create_augroup("ColorfulTimesFocus", { clear = true })
   vim.api.nvim_create_autocmd("FocusLost", {
     group = grp,
-    callback = function() focused = false end,
+    callback = function() _focused = false end,
   })
   vim.api.nvim_create_autocmd("FocusGained", {
     group = grp,
     callback = function()
-      focused = true
+      _focused = true
       -- Re-check appearance immediately on focus regain
       if needs_system_poll() then
-        local fallback = previous_bg or vim.o.background or "dark"
+        local fallback = _previous_bg or vim.o.background or "dark"
         system.get_background(function(detected_bg)
-          if detected_bg ~= previous_bg then
+          if detected_bg ~= _previous_bg then
             M.apply_colorscheme()
           end
         end, fallback)
@@ -178,28 +179,32 @@ local function enable_plugin()
 end
 
 local function disable_plugin()
-  stop_timer(timer);      timer = nil
-  stop_timer(poll_timer); poll_timer = nil
+  stop_timer(_timer);      _timer = nil
+  stop_timer(_poll_timer); _poll_timer = nil
   -- Apply with enabled=false so resolve_theme() returns default
   M.apply_colorscheme()
   vim.notify("colorful-times: disabled", vim.log.levels.INFO)
 end
 
+---@return nil
 function M.toggle()
   M.config.enabled = not M.config.enabled
   if M.config.enabled then enable_plugin() else disable_plugin() end
 end
 
+---@return nil
 function M.reload()
-  stop_timer(timer);      timer = nil
-  stop_timer(poll_timer); poll_timer = nil
-  previous_bg = nil
+  stop_timer(_timer);      _timer = nil
+  stop_timer(_poll_timer); _poll_timer = nil
+  _previous_bg = nil
   schedule.preprocess(M.config.schedule, M.config.default.background)  -- re-validate
   M.apply_colorscheme()
   arm_schedule_timer()
   start_poll_timer()
 end
 
+---@param opts ColorfulTimes.Config?
+---@return nil
 function M.setup(opts)
   -- Merge user opts into config
   if opts then
@@ -229,6 +234,7 @@ function M.setup(opts)
 end
 
 -- TUI entry point
+---@return nil
 function M.open()
   require("colorful-times.tui").open()
 end
