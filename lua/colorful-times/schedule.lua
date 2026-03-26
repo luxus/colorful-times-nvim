@@ -81,18 +81,32 @@ end
 ---@param time_mins integer
 ---@return integer|nil
 function M.next_change_at(parsed, time_mins)
-  if #parsed == 0 then return nil end
+  if #parsed == 0 then
+    return nil
+  end
   local min_diff = nil
 
-  vim.iter(parsed):each(function(slot)
-    vim.iter({ slot.start_time, slot.stop_time }):each(function(boundary)
-      local diff = boundary - time_mins
-      if diff <= 0 then diff = diff + 1440 end
-      if not min_diff or diff < min_diff then
-        min_diff = diff
-      end
-    end)
-  end)
+  for i = 1, #parsed do
+    local slot = parsed[i]
+
+    -- Check start_time boundary
+    local diff_start = slot.start_time - time_mins
+    if diff_start <= 0 then
+      diff_start = diff_start + 1440
+    end
+    if not min_diff or diff_start < min_diff then
+      min_diff = diff_start
+    end
+
+    -- Check stop_time boundary
+    local diff_stop = slot.stop_time - time_mins
+    if diff_stop <= 0 then
+      diff_stop = diff_stop + 1440
+    end
+    if not min_diff or diff_stop < min_diff then
+      min_diff = diff_stop
+    end
+  end
 
   return min_diff
 end
