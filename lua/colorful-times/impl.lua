@@ -433,6 +433,22 @@ local function enable_plugin()
 	vim.notify("Colorful Times enabled.", vim.log.levels.INFO)
 end
 
+-- Apply a specific default background and colorscheme.
+local function apply_default_colorscheme(background)
+	previous_background = background
+	vim.o.background = background
+
+	-- Determine which colorscheme to use based on background
+	local colorscheme = M.config.default.colorscheme
+	if M.config.default.themes and M.config.default.themes[background] then
+		colorscheme = M.config.default.themes[background]
+	end
+
+	pcall(function()
+		vim.cmd.colorscheme(colorscheme)
+	end)
+end
+
 -- Helper function to disable the plugin.
 local function disable_plugin()
 	-- If disabled, stop timers and apply default colorscheme.
@@ -449,50 +465,19 @@ local function disable_plugin()
 			or "dark"
 
 		-- Immediately apply fallback default colorscheme
-		previous_background = fallback
-		vim.o.background = fallback
-
-		local fallback_colorscheme = M.config.default.colorscheme
-		if M.config.default.themes and M.config.default.themes[fallback] then
-			fallback_colorscheme = M.config.default.themes[fallback]
-		end
-		pcall(function()
-			vim.cmd.colorscheme(fallback_colorscheme)
-		end)
+		apply_default_colorscheme(fallback)
 
 		-- Get the system background and apply the default colorscheme if it differs
 		get_system_background(function(bg)
 			if bg ~= fallback then
-				previous_background = bg
 				vim.schedule(function()
-					vim.o.background = bg
-
-					-- Determine which colorscheme to use based on background
-					local colorscheme = M.config.default.colorscheme
-					if M.config.default.themes and M.config.default.themes[bg] then
-						colorscheme = M.config.default.themes[bg]
-					end
-
-					pcall(function()
-						vim.cmd.colorscheme(colorscheme)
-					end)
+					apply_default_colorscheme(bg)
 				end)
 			end
 		end, fallback)
 	else
 		-- Apply the default colorscheme directly.
-		previous_background = background
-		vim.o.background = background
-
-		-- Determine which colorscheme to use based on background
-		local colorscheme = M.config.default.colorscheme
-		if M.config.default.themes and M.config.default.themes[background] then
-			colorscheme = M.config.default.themes[background]
-		end
-
-		pcall(function()
-			vim.cmd.colorscheme(colorscheme)
-		end)
+		apply_default_colorscheme(background)
 	end
 	vim.notify("Colorful Times disabled.", vim.log.levels.INFO)
 end

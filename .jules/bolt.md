@@ -22,3 +22,7 @@ To measure the impact, we ran a simple benchmark script that invoked `get_system
 - **What:** Cached `XDG_CURRENT_DESKTOP` and `XDG_SESSION_DESKTOP` checks using native Lua `os.getenv` instead of spawning a shell script to determine the Linux Desktop Environment (DE) on every timer tick.
 - **Why:** To eliminate repetitive, expensive shell executions for static environment variables that do not change during a user's session. Spawning sub-processes in Neovim has non-trivial overhead.
 - **Learnings:** Prefer native Lua functions to check static system environment variables and cache the results to bypass branching and repetitive executions in spawned processes.
+
+## Performance Optimization in Disable Plugin Flow
+- Created a single local helper function `apply_default_colorscheme` in `disable_plugin` to eliminate code duplication and shrink the binary footprint.
+- Ensured it directly updates vim globals and calls `pcall(vim.cmd.colorscheme)` for fast evaluation.
