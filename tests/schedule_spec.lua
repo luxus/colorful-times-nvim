@@ -129,6 +129,50 @@ describe("schedule.get_active_entry", function()
   it("returns nil for empty schedule", function()
     assert.is_nil(schedule.get_active_entry({}, 720))
   end)
+
+  it("handles exact boundaries: inclusive start, exclusive stop", function()
+    -- Standard entry (day): 06:00 (360) to 18:00 (1080)
+    -- Just before start: 05:59 (359)
+    local entry = schedule.get_active_entry(parsed, 359)
+    assert.are.equal("night", entry.colorscheme)
+
+    -- Exact start: 06:00 (360)
+    entry = schedule.get_active_entry(parsed, 360)
+    assert.are.equal("day", entry.colorscheme)
+
+    -- Just before stop: 17:59 (1079)
+    entry = schedule.get_active_entry(parsed, 1079)
+    assert.are.equal("day", entry.colorscheme)
+
+    -- Exact stop: 18:00 (1080) -> it becomes night entry
+    entry = schedule.get_active_entry(parsed, 1080)
+    assert.are.equal("night", entry.colorscheme)
+
+    -- Overnight entry (night): 18:00 (1080) to 06:00 (360)
+    -- Just before stop: 05:59 (359) -> handled above (is "night")
+  end)
+
+  it("handles overnight boundaries for single entry", function()
+    local night_only = schedule.preprocess({
+      { start = "22:00", stop = "08:00", colorscheme = "night" }
+    }, "dark")
+
+    -- Just before start: 21:59 (1319)
+    local entry = schedule.get_active_entry(night_only, 1319)
+    assert.is_nil(entry)
+
+    -- Exact start: 22:00 (1320)
+    entry = schedule.get_active_entry(night_only, 1320)
+    assert.are.equal("night", entry.colorscheme)
+
+    -- Just before stop: 07:59 (479)
+    entry = schedule.get_active_entry(night_only, 479)
+    assert.are.equal("night", entry.colorscheme)
+
+    -- Exact stop: 08:00 (480)
+    entry = schedule.get_active_entry(night_only, 480)
+    assert.is_nil(entry)
+  end)
 end)
 
 describe("schedule.next_change_at", function()
