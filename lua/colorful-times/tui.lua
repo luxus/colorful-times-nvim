@@ -126,7 +126,7 @@ end
 
 -- Fuzzy colorscheme picker with live preview.
 -- Calls cb(name) on confirm, cb(nil) on cancel.
-local function pick_colorscheme(default, cb)
+local function pick_colorscheme(_default, cb)
   local original_cs = vim.g.colors_name
   local original_bg = vim.o.background
 
