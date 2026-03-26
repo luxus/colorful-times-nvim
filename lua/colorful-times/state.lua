@@ -15,7 +15,7 @@ function M.load()
   f:close()
   if not content or content == "" then return {} end
   local ok, result = pcall(vim.json.decode, content)
-  if not ok then
+  if not ok or type(result) ~= "table" then
     vim.notify(
       "colorful-times: failed to parse state file: " .. path,
       vim.log.levels.WARN
