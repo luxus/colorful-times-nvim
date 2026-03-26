@@ -220,7 +220,7 @@ function M.setup(opts)
 
   -- Merge persisted state on top
   local stored = state.load()
-  if next(stored) then
+  if type(stored) == "table" and next(stored) then
     M.config = state.merge(M.config, stored)
   end
 
