@@ -1,14 +1,46 @@
 -- lua/colorful-times/schedule.lua
 local M = {}
 
+-- Constants
+local MINUTES_PER_DAY = 1440
+
+-- Module-level cache for parse_time results (including nil for invalid inputs)
+local _parse_time_cache = {}
+local _PARSE_TIME_CACHE_LIMIT = 100
+
 ---@param str string
 ---@return integer|nil
 function M.parse_time(str)
+  -- Check cache first (using rawget pattern to handle nil values)
+  if _parse_time_cache[str] ~= nil or rawget(_parse_time_cache, str) ~= nil then
+    return _parse_time_cache[str]
+  end
+
   local hour, min = str:match("^(%d%d?):(%d%d)$")
-  if not hour then return nil end
+  if not hour then
+    _parse_time_cache[str] = nil
+    return nil
+  end
   hour, min = tonumber(hour), tonumber(min)
-  if hour >= 24 or min >= 60 then return nil end
-  return hour * 60 + min
+  if hour >= 24 or min >= 60 then
+    _parse_time_cache[str] = nil
+    return nil
+  end
+  local result = hour * 60 + min
+  _parse_time_cache[str] = result
+
+  -- Limit cache size to prevent unbounded growth
+  local cache_size = 0
+  for _ in pairs(_parse_time_cache) do
+    cache_size = cache_size + 1
+  end
+  if cache_size > _PARSE_TIME_CACHE_LIMIT then
+    -- Simple strategy: clear cache when limit exceeded
+    _parse_time_cache = {}
+    _parse_time_cache[str] = result
+  end
+
+  return result
 end
 
 ---@param entry table
@@ -65,9 +97,9 @@ function M.get_active_entry(parsed, time_mins)
     if stop_t <= start_t then
       -- overnight: e.g. 22:00 -> 06:00
       if current < start_t then
-        current = current + 1440
+        current = current + MINUTES_PER_DAY
       end
-      stop_t = stop_t + 1440
+      stop_t = stop_t + MINUTES_PER_DAY
     end
 
     if current >= start_t and current < stop_t then
@@ -92,7 +124,7 @@ function M.next_change_at(parsed, time_mins)
     -- Check start_time boundary
     local diff_start = slot.start_time - time_mins
     if diff_start <= 0 then
-      diff_start = diff_start + 1440
+      diff_start = diff_start + MINUTES_PER_DAY
     end
     if not min_diff or diff_start < min_diff then
       min_diff = diff_start
@@ -101,7 +133,7 @@ function M.next_change_at(parsed, time_mins)
     -- Check stop_time boundary
     local diff_stop = slot.stop_time - time_mins
     if diff_stop <= 0 then
-      diff_stop = diff_stop + 1440
+      diff_stop = diff_stop + MINUTES_PER_DAY
     end
     if not min_diff or diff_stop < min_diff then
       min_diff = diff_stop
