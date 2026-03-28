@@ -34,7 +34,7 @@ local M = {}
 
 M.config = {
   enabled = true,
-  refresh_time = 5000,  -- DEFAULT_REFRESH_TIME: milliseconds between appearance polls
+  refresh_time = 5000,  -- DEFAULT_REFRESH_TIME (ms): poll interval for system background changes
   system_background_detection = nil,
   default = {
     colorscheme = "default",

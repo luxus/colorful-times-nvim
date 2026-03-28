@@ -163,7 +163,7 @@ local function pick_colorscheme(_default, cb)
     -- Cap at MAX_COLORSCHEMES to avoid unusable overflow
     local display = #schemes > MAX_COLORSCHEMES and vim.list_slice(schemes, 1, MAX_COLORSCHEMES) or schemes
     vim.ui.select(display, {
-      prompt = "Colorscheme (showing first " .. MAX_COLORSCHEMES .. "): ",
+      prompt = "Colorscheme (showing first " .. MAX_COLORSCHEMES .. " of " .. #schemes .. "): ",
     }, function(choice)
       if choice then cb(choice) else cb(nil) end
     end)
