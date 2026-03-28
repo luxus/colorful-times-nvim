@@ -5,6 +5,9 @@ local system   = require("colorful-times.system")
 local state    = require("colorful-times.state")
 local uv       = vim.uv
 
+-- Constants
+local MS_PER_MINUTE = 60000  -- milliseconds per minute for timer calculations
+
 -- Module-level mutable state
 local _timer      -- uv_timer_t|nil  (schedule boundary timer)
 local _poll_timer -- uv_timer_t|nil  (appearance poll timer)
@@ -102,7 +105,7 @@ local function arm_schedule_timer()
   if not diff_min then return end
 
   _timer = uv.new_timer()
-  _timer:start(diff_min * 60 * 1000, 0, function()
+  _timer:start(diff_min * MS_PER_MINUTE, 0, function()
     vim.schedule(function()
       M.apply_colorscheme()
       arm_schedule_timer()
