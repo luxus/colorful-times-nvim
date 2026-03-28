@@ -1,14 +1,23 @@
 {
   "id": "task-13",
   "title": "Add Backup for Corrupted State Files",
-  "status": "in_progress",
+  "status": "done",
   "depends_on": [
     "task-5"
   ],
   "created_at": "2026-03-28T05:50:30.922Z",
-  "updated_at": "2026-03-28T05:59:41.374Z",
+  "updated_at": "2026-03-28T06:01:10.772Z",
   "attempt_count": 1,
   "started_at": "2026-03-28T05:59:41.358Z",
   "base_commit": "8f5e43e60c5fa6e0682f97760747c8fe817e0781",
-  "assigned_to": "TrueHawk"
+  "completed_at": "2026-03-28T06:01:10.772Z",
+  "summary": "Added backup functionality for corrupted state files in state.lua. When JSON parsing fails, the corrupted file is backed up with a unique .bak.<timestamp>_<random> suffix using atomic rename (with copy+delete fallback), user is notified of backup location, and empty state is returned. Added 2 new tests verifying single and multiple backup creation.",
+  "evidence": {
+    "commits": [
+      "df29a11"
+    ],
+    "tests": [
+      "53 tests pass in tests/state_spec.lua"
+    ]
+  }
 }

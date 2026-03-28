@@ -1,12 +1,21 @@
 {
   "id": "task-14",
   "title": "Extract Linux Shell Script to Configurable Location",
-  "status": "in_progress",
+  "status": "done",
   "depends_on": [],
   "created_at": "2026-03-28T05:50:30.923Z",
-  "updated_at": "2026-03-28T05:59:46.728Z",
+  "updated_at": "2026-03-28T06:01:40.566Z",
   "attempt_count": 1,
   "started_at": "2026-03-28T05:59:46.711Z",
   "base_commit": "8f5e43e60c5fa6e0682f97760747c8fe817e0781",
-  "assigned_to": "WildViper"
+  "completed_at": "2026-03-28T06:01:40.566Z",
+  "summary": "Task-14 was already implemented in commit df29a11 (feat(state): add backup for corrupted state files). The system_background_detection_script config option was added to init.lua, system.lua was updated with script validation and execution logic, and documentation was added to doc/colorful-times.txt. All 86 tests pass.",
+  "evidence": {
+    "commits": [
+      "df29a11080b454b63750c69c04907b6065c296a1"
+    ],
+    "tests": [
+      "86 tests passed"
+    ]
+  }
 }

@@ -1,12 +1,12 @@
 {
   "id": "task-4",
   "title": "Cache next_change_at Results in schedule.lua",
-  "status": "done",
+  "status": "blocked",
   "depends_on": [
     "task-2"
   ],
   "created_at": "2026-03-28T05:50:30.917Z",
-  "updated_at": "2026-03-28T05:51:00.188Z",
+  "updated_at": "2026-03-28T06:02:17.889Z",
   "attempt_count": 1,
   "started_at": "2026-03-28T05:50:41.746Z",
   "base_commit": "e7ce632144230bf41d646356358f7e895fccbfb0",
@@ -19,5 +19,23 @@
     "tests": [
       "schedule_spec.lua: 19 passed"
     ]
-  }
+  },
+  "last_review": {
+    "verdict": "MAJOR_RETHINK",
+    "summary": "The task asked to cache `next_change_at()` results, but the implementation instead cached `parse_time()` results - a completely different function. The task requirements were fundamentally misunderstood or misapplied.",
+    "issues": [
+      "Issue 1 (Critical - Wrong Function Cached)**: The task specification explicitly requires caching `next_change_at(parsed, time_mins)` with a single-entry cache keyed by `(time_mins, parsed_hash)`. The current implementation (`cdcc911`) added caching to `parse_time(str)` instead - this caches string-to-minutes conversions, not schedule boundary calculations. These are completely different optimization targets.",
+      "Issue 2 (Critical - Missing Cache Structure)**: The required module-level cache `_next_change_cache = { time_mins = nil, parsed_hash = nil, result = nil }` does not exist. No equivalent structure was added to track `next_change_at` inputs/outputs.",
+      "Issue 3 (Critical - Missing Hash Computation)**: The task requires computing a hash of the parsed schedule for cache invalidation. The current `next_change_at()` implementation (`lua/colorful-times/schedule.lua:120-145`) has no hash computation logic.",
+      "Issue 4 (Test Gap)**: The acceptance criteria requires tests verifying \"caching behavior with same/different inputs\" for `next_change_at`. The test file only has basic functional tests for `next_change_at` (lines 178-192), with no cache verification tests."
+    ],
+    "suggestions": [
+      "Suggestion 1: Re-read the task specification carefully. The cache should be for `next_change_at(parsed, time_mins)`, not `parse_time(str)`. The `parsed` parameter is a table of schedule entries - this needs to be hashed/comparable.",
+      "Suggestion 2: Consider using `vim.inspect(parsed)` or a simpler approach like `tostring(parsed)` for the hash if the parsed table structure is stable, or compute a simple hash from entry fields.",
+      "Suggestion 3: Keep the single-entry cache as specified - since `time_mins` changes every minute, a larger cache would rarely hit. The replacement strategy (no explicit clear needed) is correct per requirements."
+    ],
+    "reviewed_at": "2026-03-28T06:02:17.887Z"
+  },
+  "review_count": 1,
+  "blocked_reason": "Reviewer: The task asked to cache `next_change_at()` results, but the implementation instead cached `parse_time()` results - a com"
 }
