@@ -73,6 +73,11 @@ function M.get_background(cb, fallback)
         vim.schedule(function() cb(fallback) end)
         return
       end
+      if stat.type == "directory" then
+        vim.notify("colorful-times: script path is a directory: " .. script, vim.log.levels.ERROR)
+        vim.schedule(function() cb(fallback) end)
+        return
+      end
       if bit.band(stat.mode, tonumber("111", 8)) == 0 then
         vim.notify("colorful-times: script not executable: " .. script, vim.log.levels.ERROR)
         vim.schedule(function() cb(fallback) end)

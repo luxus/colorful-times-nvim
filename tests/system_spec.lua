@@ -48,3 +48,109 @@ describe("system.get_background fallback", function()
     system.sysname = orig_sysname
   end)
 end)
+
+describe("system.get_background with system_background_detection_script", function()
+  local uv = vim.uv
+  local M = require("colorful-times")
+  local system = require("colorful-times.system")
+  local orig_sysname = system.sysname
+  local tmpdir = nil
+
+  before_each(function()
+    -- Mock Linux for these tests
+    system.sysname = function() return "Linux" end
+    -- Create temp directory for test scripts
+    tmpdir = uv.fs_mkdtemp("/tmp/colorful_times_test_XXXXXX")
+  end)
+
+  after_each(function()
+    system.sysname = orig_sysname
+    M.config.system_background_detection_script = nil
+    -- Clean up temp directory
+    if tmpdir then
+      local handle = uv.fs_scandir(tmpdir)
+      while handle do
+        local name, typ = uv.fs_scandir_next(handle)
+        if not name then break end
+        uv.fs_unlink(tmpdir .. "/" .. name)
+      end
+      uv.fs_rmdir(tmpdir)
+      tmpdir = nil
+    end
+  end)
+
+  it("executes custom script and returns dark on exit 0", function()
+    local script_path = tmpdir .. "/dark_script.sh"
+    local f = assert(io.open(script_path, "w"))
+    f:write("#!/bin/sh\nexit 0")
+    f:close()
+    assert(uv.fs_chmod(script_path, tonumber("755", 8)))
+
+    -- Verify the file exists and is executable
+    local stat = uv.fs_stat(script_path)
+    assert.is_not_nil(stat, "script should exist")
+    local bit = require("bit")
+    assert.is_true(bit.band(stat.mode, tonumber("111", 8)) ~= 0, "script should be executable")
+
+    M.config.system_background_detection_script = script_path
+
+    local result = nil
+    system.get_background(function(bg) result = bg end, "light")
+    vim.wait(500, function() return result ~= nil end)
+    assert.is_not_nil(result, "callback should have been called")
+    assert.are.equal("dark", result)
+  end)
+
+  it("executes custom script and returns light on exit 1", function()
+    local script_path = tmpdir .. "/light_script.sh"
+    local f = assert(io.open(script_path, "w"))
+    f:write("#!/bin/sh\nexit 1")
+    f:close()
+    assert(uv.fs_chmod(script_path, tonumber("755", 8)))
+
+    M.config.system_background_detection_script = script_path
+
+    local result = nil
+    system.get_background(function(bg) result = bg end, "dark")
+    vim.wait(500, function() return result ~= nil end)
+    assert.is_not_nil(result, "callback should have been called")
+    assert.are.equal("light", result)
+  end)
+
+  it("falls back to default when script does not exist", function()
+    M.config.system_background_detection_script = "/nonexistent/script.sh"
+
+    local result = nil
+    system.get_background(function(bg) result = bg end, "dark")
+    vim.wait(100, function() return result ~= nil end)
+    -- Should fallback to the provided fallback value
+    assert.are.equal("dark", result)
+  end)
+
+  it("falls back to default when script is not executable", function()
+    local script_path = tmpdir .. "/not_executable.sh"
+    local f = assert(io.open(script_path, "w"))
+    f:write("#!/bin/sh\nexit 0")
+    f:close()
+    -- Not setting executable permission
+    assert(uv.fs_chmod(script_path, tonumber("644", 8)))
+
+    M.config.system_background_detection_script = script_path
+
+    local result = nil
+    system.get_background(function(bg) result = bg end, "light")
+    vim.wait(100, function() return result ~= nil end)
+    -- Should fallback to the provided fallback value
+    assert.are.equal("light", result)
+  end)
+
+  it("falls back when script path is a directory", function()
+    M.config.system_background_detection_script = tmpdir
+
+    local result = nil
+    system.get_background(function(bg) result = bg end, "light")
+    vim.wait(100, function() return result ~= nil end)
+    -- Should fallback to the provided fallback value (directory not executable)
+    assert.are.equal("light", result)
+  end)
+end)
