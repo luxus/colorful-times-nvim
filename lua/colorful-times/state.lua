@@ -234,12 +234,12 @@ local function backup_corrupted_file(path)
   return backup_path, true
 end
 
----@return string
+---@return string path Full path to the state JSON file
 function M.path()
   return vim.fn.stdpath("data") .. "/colorful-times/state.json"
 end
 
----@return table
+---@return table data Loaded state data (empty table if file missing or corrupted)
 function M.load()
   local path = M.path()
 
@@ -290,7 +290,8 @@ function M.load()
   return result
 end
 
----@param data table
+---@param data table State data to persist
+---@return nil
 function M.save(data)
   -- Validate data before writing
   local ok, err = M.validate_state(data)
@@ -349,9 +350,9 @@ function M.save(data)
   end
 end
 
----@param base_config table
----@param stored table
----@return table
+---@param base_config table Base configuration to merge into
+---@param stored table Stored state to merge from
+---@return table merged The merged configuration with stored values taking precedence
 function M.merge(base_config, stored)
   local result = vim.deepcopy(base_config)
   -- Only override keys that are explicitly present in stored
