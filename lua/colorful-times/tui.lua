@@ -8,6 +8,7 @@ local ct     = require("colorful-times")
 local sched  = require("colorful-times.schedule")
 
 local VERSION = "2.0.0"
+local MAX_COLORSCHEMES = 200
 
 -- ─── Snacks detection ────────────────────────────────────────────────────────
 
@@ -159,10 +160,10 @@ local function pick_colorscheme(_default, cb)
     })
   else
     -- Fallback: vim.ui.select (no live preview)
-    -- Cap at 200 to avoid unusable overflow
-    local display = #schemes > 200 and vim.list_slice(schemes, 1, 200) or schemes
+    -- Cap at MAX_COLORSCHEMES to avoid unusable overflow
+    local display = #schemes > MAX_COLORSCHEMES and vim.list_slice(schemes, 1, MAX_COLORSCHEMES) or schemes
     vim.ui.select(display, {
-      prompt = "Colorscheme (showing first 200): ",
+      prompt = "Colorscheme (showing first " .. MAX_COLORSCHEMES .. "): ",
     }, function(choice)
       if choice then cb(choice) else cb(nil) end
     end)
