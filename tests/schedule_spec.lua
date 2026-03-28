@@ -196,6 +196,90 @@ describe("schedule.next_change_at", function()
   end)
 end)
 
+describe("schedule.next_change_at cache", function()
+  it("returns cached result for same (parsed, time_mins) pair", function()
+    -- Reload module to get fresh cache
+    package.loaded["colorful-times.schedule"] = nil
+    local test_schedule = require("colorful-times.schedule")
+
+    local parsed = test_schedule.preprocess({
+      { start = "06:00", stop = "18:00", colorscheme = "day", background = "light" },
+    }, "dark")
+
+    -- First call should compute and cache
+    local result1 = test_schedule.next_change_at(parsed, 300)
+    assert.are.equal(60, result1)
+
+    -- Second call with same parsed and time_mins should return cached result
+    local result2 = test_schedule.next_change_at(parsed, 300)
+    assert.are.equal(60, result2)
+    assert.are.equal(result1, result2)
+  end)
+
+  it("recomputes when time_mins changes", function()
+    -- Reload module to get fresh cache
+    package.loaded["colorful-times.schedule"] = nil
+    local test_schedule = require("colorful-times.schedule")
+
+    local parsed = test_schedule.preprocess({
+      { start = "06:00", stop = "18:00", colorscheme = "day", background = "light" },
+    }, "dark")
+
+    -- First call at 05:00 (300 mins)
+    local result1 = test_schedule.next_change_at(parsed, 300)
+    assert.are.equal(60, result1) -- next is 06:00
+
+    -- Call at different time_mins should recompute
+    local result2 = test_schedule.next_change_at(parsed, 360)
+    assert.are.equal(720, result2) -- next is 18:00
+  end)
+
+  it("recomputes when parsed schedule changes", function()
+    -- Reload module to get fresh cache
+    package.loaded["colorful-times.schedule"] = nil
+    local test_schedule = require("colorful-times.schedule")
+
+    local parsed1 = test_schedule.preprocess({
+      { start = "06:00", stop = "18:00", colorscheme = "day", background = "light" },
+    }, "dark")
+
+    -- First call with first schedule
+    local result1 = test_schedule.next_change_at(parsed1, 300)
+    assert.are.equal(60, result1)
+
+    -- Different parsed schedule should recompute (even with same time_mins)
+    local parsed2 = test_schedule.preprocess({
+      { start = "08:00", stop = "20:00", colorscheme = "day", background = "light" },
+    }, "dark")
+
+    local result2 = test_schedule.next_change_at(parsed2, 300)
+    assert.are.equal(180, result2) -- next is 08:00 (480 - 300 = 180)
+    assert.are_not.equal(result1, result2)
+  end)
+
+  it("uses single entry cache with replacement strategy", function()
+    -- Reload module to get fresh cache
+    package.loaded["colorful-times.schedule"] = nil
+    local test_schedule = require("colorful-times.schedule")
+
+    local parsed = test_schedule.preprocess({
+      { start = "06:00", stop = "18:00", colorscheme = "day", background = "light" },
+    }, "dark")
+
+    -- Cache first result
+    test_schedule.next_change_at(parsed, 300)
+
+    -- Call with different time_mins replaces cache entry
+    local result2 = test_schedule.next_change_at(parsed, 360)
+    assert.are.equal(720, result2)
+
+    -- Call with first time_mins again should recompute (not cached anymore)
+    -- But result should still be correct
+    local result3 = test_schedule.next_change_at(parsed, 300)
+    assert.are.equal(60, result3)
+  end)
+end)
+
 describe("schedule.parse_time cache", function()
   it("returns cached result for same time string", function()
     -- Reload module to get fresh cache

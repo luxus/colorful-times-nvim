@@ -12,6 +12,9 @@ local _cache_size = 0
 -- Sentinel value to represent cached nil results (since table[key] = nil removes the key in Lua)
 local _CACHE_NIL = {}
 
+-- Cache for next_change_at results (single entry, keyed by time_mins + parsed_hash)
+local _next_change_cache = { time_mins = nil, parsed_hash = nil, result = nil }
+
 ---@param str string
 ---@return integer|nil
 function M.parse_time(str)
@@ -125,6 +128,15 @@ function M.next_change_at(parsed, time_mins)
   if #parsed == 0 then
     return nil
   end
+
+  -- Compute hash of parsed schedule for cache comparison
+  local parsed_hash = vim.inspect(parsed)
+
+  -- Check cache: same time and same parsed schedule
+  if _next_change_cache.time_mins == time_mins and _next_change_cache.parsed_hash == parsed_hash then
+    return _next_change_cache.result
+  end
+
   local min_diff = nil
 
   for i = 1, #parsed do
@@ -148,6 +160,11 @@ function M.next_change_at(parsed, time_mins)
       min_diff = diff_stop
     end
   end
+
+  -- Store result in cache (single entry, replacement strategy)
+  _next_change_cache.time_mins = time_mins
+  _next_change_cache.parsed_hash = parsed_hash
+  _next_change_cache.result = min_diff
 
   return min_diff
 end

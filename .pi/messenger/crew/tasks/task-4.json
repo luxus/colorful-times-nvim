@@ -1,25 +1,13 @@
 {
   "id": "task-4",
   "title": "Cache next_change_at Results in schedule.lua",
-  "status": "blocked",
+  "status": "in_progress",
   "depends_on": [
     "task-2"
   ],
   "created_at": "2026-03-28T05:50:30.917Z",
-  "updated_at": "2026-03-28T06:02:17.889Z",
-  "attempt_count": 1,
-  "started_at": "2026-03-28T05:50:41.746Z",
-  "base_commit": "e7ce632144230bf41d646356358f7e895fccbfb0",
-  "completed_at": "2026-03-28T05:51:00.188Z",
-  "summary": "Added cache for next_change_at() in schedule.lua. Cache stores single entry keyed by (time_mins, vim.inspect(parsed)) and returns cached result when inputs match. Added 3 tests verifying caching behavior: same inputs return cached, different time recomputes, different parsed schedule recomputes. All 19 tests pass.",
-  "evidence": {
-    "commits": [
-      "c9713af"
-    ],
-    "tests": [
-      "schedule_spec.lua: 19 passed"
-    ]
-  },
+  "updated_at": "2026-03-28T06:10:32.744Z",
+  "attempt_count": 2,
   "last_review": {
     "verdict": "MAJOR_RETHINK",
     "summary": "The task asked to cache `next_change_at()` results, but the implementation instead cached `parse_time()` results - a completely different function. The task requirements were fundamentally misunderstood or misapplied.",
@@ -37,5 +25,7 @@
     "reviewed_at": "2026-03-28T06:02:17.887Z"
   },
   "review_count": 1,
-  "blocked_reason": "Reviewer: The task asked to cache `next_change_at()` results, but the implementation instead cached `parse_time()` results - a com"
+  "started_at": "2026-03-28T06:10:32.720Z",
+  "base_commit": "ef5036c640632ce7de7709998c2da67d8c67ef3b",
+  "assigned_to": "ZenGrove"
 }

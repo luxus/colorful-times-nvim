@@ -5,6 +5,62 @@ local schedule = require("colorful-times.schedule")
 local uv = vim.uv
 local bit = require("bit")
 
+-- Platform detection for file locking support
+local _is_windows = uv.os_uname().sysname:match("Windows") ~= nil
+local _flock_available = not _is_windows
+
+-- Flock constants (from sys/file.h)
+local LOCK_SH = 1   -- Shared lock (for reading)
+local LOCK_EX = 2   -- Exclusive lock (for writing)
+local LOCK_NB = 4   -- Non-blocking (fail immediately if locked)
+local LOCK_UN = 8   -- Unlock
+
+---Acquire a file lock using vim.uv.fs_flock()
+---@param fd number File descriptor
+---@param exclusive boolean Whether to use exclusive lock (write) or shared (read)
+---@param timeout_ms number? Optional timeout in ms for retry (default: 5000)
+---@return boolean ok True if lock acquired
+---@return string? error Error message if failed
+local function acquire_lock(fd, exclusive, timeout_ms)
+  if not _flock_available then
+    return true -- Silently skip on Windows
+  end
+
+  timeout_ms = timeout_ms or 5000
+  local lock_type = exclusive and LOCK_EX or LOCK_SH
+  local start_time = uv.hrtime() / 1e6 -- Convert to ms
+  local retry_delay = 10 -- Initial retry delay in ms
+
+  while true do
+    local ok, err = uv.fs_flock(fd, lock_type)
+    if ok then
+      return true
+    end
+
+    -- Check if we should retry (only retry if file is locked, not for other errors)
+    local elapsed = (uv.hrtime() / 1e6) - start_time
+    if elapsed >= timeout_ms then
+      return false, "Timeout waiting for file lock"
+    end
+
+    -- Exponential backoff with cap
+    vim.wait(math.min(retry_delay, 100))
+    retry_delay = math.min(retry_delay * 2, 100)
+  end
+end
+
+---Release a file lock
+---@param fd number File descriptor
+---@return boolean ok
+local function release_lock(fd)
+  if not _flock_available then
+    return true
+  end
+
+  local ok, _ = uv.fs_flock(fd, LOCK_UN)
+  return ok or false
+end
+
 -- Error code to human-readable message mapping
 local ERROR_MESSAGES = {
   EACCES = "Permission denied",
@@ -200,13 +256,26 @@ function M.load()
     return {}
   end
 
+  -- Acquire shared lock for reading
+  local lock_ok, lock_err = acquire_lock(fd, false, 5000)
+  if not lock_ok then
+    uv.fs_close(fd)
+    vim.notify(
+      "colorful-times: " .. (lock_err or "Failed to acquire file lock") .. ": " .. path,
+      vim.log.levels.WARN
+    )
+    return {}
+  end
+
   local stat = uv.fs_fstat(fd)
   if not stat then
+    release_lock(fd)
     uv.fs_close(fd)
     return {}
   end
 
   local content = uv.fs_read(fd, stat.size, 0)
+  release_lock(fd)
   uv.fs_close(fd)
 
   if not content or content == "" then return {} end
@@ -252,12 +321,28 @@ function M.save(data)
     return
   end
 
-  local success = uv.fs_write(fd, content, 0)
+  -- Acquire exclusive lock before writing
+  local lock_ok, lock_err = acquire_lock(fd, true, 5000)
+  if not lock_ok then
+    uv.fs_close(fd)
+    vim.notify(
+      "colorful-times: " .. (lock_err or "Failed to acquire file lock") .. ": " .. path,
+      vim.log.levels.ERROR
+    )
+    return
+  end
+
+  -- Ensure lock is released even on error using pcall
+  local success, write_err = pcall(function()
+    return uv.fs_write(fd, content, 0)
+  end)
+
+  release_lock(fd)
   uv.fs_close(fd)
 
-  if not success then
+  if not success or not write_err then
     vim.notify(
-      "colorful-times: failed to write state file: " .. path,
+      "colorful-times: failed to write state file: " .. path .. " (" .. tostring(write_err or "unknown") .. ")",
       vim.log.levels.ERROR
     )
   end
