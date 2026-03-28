@@ -28,6 +28,7 @@ local M = {}
 ---@field enabled boolean
 ---@field refresh_time integer  Milliseconds between appearance polls
 ---@field system_background_detection string[]|fun():string|nil
+---@field system_background_detection_script string|nil  Path to custom shell script for Linux detection
 ---@field default ColorfulTimes.DefaultConfig
 ---@field schedule ColorfulTimes.ScheduleEntry[]
 ---@field persist boolean       Whether TUI changes are written to state.json
@@ -36,6 +37,7 @@ M.config = {
   enabled = true,
   refresh_time = 5000,  -- DEFAULT_REFRESH_TIME (ms): poll interval for system background changes
   system_background_detection = nil,
+  system_background_detection_script = nil,  -- Path to custom Linux detection script (exit 0=dark, 1=light)
   default = {
     colorscheme = "default",
     background = "system",

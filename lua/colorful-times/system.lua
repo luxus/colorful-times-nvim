@@ -1,6 +1,7 @@
 -- lua/colorful-times/system.lua
 local M = {}
 local uv = vim.uv
+local bit = require("bit")
 
 local _sysname = nil
 
@@ -61,26 +62,48 @@ function M.get_background(cb, fallback)
     end)
 
   elseif sysname == "Linux" then
-    -- Auto-detect KDE or GNOME
-    local script = [[
-      if [ "$XDG_CURRENT_DESKTOP" = "KDE" ] || [ "$XDG_SESSION_DESKTOP" = "KDE" ]; then
-        if command -v kreadconfig6 &>/dev/null; then
-          kreadconfig6 --group General --key ColorScheme --file kdeglobals | grep -q Dark && exit 0
-          kreadconfig6 --group KDE --key LookAndFeelPackage | grep -qi dark && exit 0
-        elif command -v kreadconfig5 &>/dev/null; then
-          kreadconfig5 --group General --key ColorScheme --file kdeglobals | grep -q Dark && exit 0
+    local config = require("colorful-times").config
+    local script = config.system_background_detection_script
+
+    if script then
+      -- Validate script exists and is executable
+      local stat = uv.fs_stat(script)
+      if not stat then
+        vim.notify("colorful-times: script not found: " .. script, vim.log.levels.ERROR)
+        vim.schedule(function() cb(fallback) end)
+        return
+      end
+      if bit.band(stat.mode, tonumber("111", 8)) == 0 then
+        vim.notify("colorful-times: script not executable: " .. script, vim.log.levels.ERROR)
+        vim.schedule(function() cb(fallback) end)
+        return
+      end
+      -- Execute custom script: exit 0 = dark, exit 1 = light
+      spawn_check(script, {}, function(code)
+        vim.schedule(function() cb(code == 0 and "dark" or "light") end)
+      end)
+    else
+      -- Auto-detect KDE or GNOME using default inline script
+      local default_script = [[
+        if [ "$XDG_CURRENT_DESKTOP" = "KDE" ] || [ "$XDG_SESSION_DESKTOP" = "KDE" ]; then
+          if command -v kreadconfig6 &>/dev/null; then
+            kreadconfig6 --group General --key ColorScheme --file kdeglobals | grep -q Dark && exit 0
+            kreadconfig6 --group KDE --key LookAndFeelPackage | grep -qi dark && exit 0
+          elif command -v kreadconfig5 &>/dev/null; then
+            kreadconfig5 --group General --key ColorScheme --file kdeglobals | grep -q Dark && exit 0
+          fi
+          exit 1
+        elif [ "$XDG_CURRENT_DESKTOP" = "GNOME" ] || [ "$XDG_SESSION_DESKTOP" = "GNOME" ]; then
+          gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | grep -q prefer-dark && exit 0
+          exit 1
+        else
+          exit 1
         fi
-        exit 1
-      elif [ "$XDG_CURRENT_DESKTOP" = "GNOME" ] || [ "$XDG_SESSION_DESKTOP" = "GNOME" ]; then
-        gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | grep -q prefer-dark && exit 0
-        exit 1
-      else
-        exit 1
-      fi
-    ]]
-    spawn_check("sh", { "-c", script }, function(code)
-      vim.schedule(function() cb(code == 0 and "dark" or "light") end)
-    end)
+      ]]
+      spawn_check("sh", { "-c", default_script }, function(code)
+        vim.schedule(function() cb(code == 0 and "dark" or "light") end)
+      end)
+    end
 
   else
     vim.schedule(function() cb(fallback) end)

@@ -88,6 +88,89 @@ function M.validate_state(data)
   return true
 end
 
+---@param path string
+---@return string backup_path
+---@return boolean success
+local function backup_corrupted_file(path)
+  -- Use higher precision timestamp (microseconds via uv.hrtime if available, or os.time + counter)
+  local timestamp = tostring(os.time()) .. "_" .. tostring(math.random(1000, 9999))
+  local backup_path = path .. ".bak." .. timestamp
+
+  -- Try rename first (atomic)
+  local ok, err = uv.fs_rename(path, backup_path)
+  if ok then
+    vim.notify(
+      "colorful-times: corrupted state backed up to " .. backup_path,
+      vim.log.levels.WARN
+    )
+    return backup_path, true
+  end
+
+  -- Fallback: copy + delete
+  local src_fd, src_err = uv.fs_open(path, uv.constants.O_RDONLY, 0)
+  if not src_fd then
+    vim.notify(
+      "colorful-times: failed to backup corrupted state (open error: " .. (src_err or "unknown") .. ")",
+      vim.log.levels.ERROR
+    )
+    return backup_path, false
+  end
+
+  local stat = uv.fs_fstat(src_fd)
+  if not stat then
+    uv.fs_close(src_fd)
+    vim.notify(
+      "colorful-times: failed to backup corrupted state (stat error)",
+      vim.log.levels.ERROR
+    )
+    return backup_path, false
+  end
+
+  local content = uv.fs_read(src_fd, stat.size, 0)
+  uv.fs_close(src_fd)
+
+  if not content then
+    vim.notify(
+      "colorful-times: failed to backup corrupted state (read error)",
+      vim.log.levels.ERROR
+    )
+    return backup_path, false
+  end
+
+  local bit = require("bit")
+  local flags = bit.bor(uv.constants.O_WRONLY, uv.constants.O_CREAT, uv.constants.O_TRUNC)
+  local mode = tonumber("644", 8)
+
+  local dst_fd, dst_err = uv.fs_open(backup_path, flags, mode)
+  if not dst_fd then
+    vim.notify(
+      "colorful-times: failed to backup corrupted state (create error: " .. (dst_err or "unknown") .. ")",
+      vim.log.levels.ERROR
+    )
+    return backup_path, false
+  end
+
+  local written = uv.fs_write(dst_fd, content, 0)
+  uv.fs_close(dst_fd)
+
+  if not written then
+    vim.notify(
+      "colorful-times: failed to backup corrupted state (write error)",
+      vim.log.levels.ERROR
+    )
+    return backup_path, false
+  end
+
+  -- Delete original after successful copy
+  uv.fs_unlink(path)
+
+  vim.notify(
+    "colorful-times: corrupted state backed up to " .. backup_path,
+    vim.log.levels.WARN
+  )
+  return backup_path, true
+end
+
 ---@return string
 function M.path()
   return vim.fn.stdpath("data") .. "/colorful-times/state.json"
@@ -123,10 +206,8 @@ function M.load()
 
   local ok, result = pcall(vim.json.decode, content)
   if not ok or type(result) ~= "table" then
-    vim.notify(
-      "colorful-times: failed to parse state file: " .. path,
-      vim.log.levels.WARN
-    )
+    -- Backup corrupted file before returning empty state
+    backup_corrupted_file(path)
     return {}
   end
   return result

@@ -1,11 +1,14 @@
 {
   "id": "task-13",
   "title": "Add Backup for Corrupted State Files",
-  "status": "todo",
+  "status": "in_progress",
   "depends_on": [
     "task-5"
   ],
   "created_at": "2026-03-28T05:50:30.922Z",
-  "updated_at": "2026-03-28T05:50:30.925Z",
-  "attempt_count": 0
+  "updated_at": "2026-03-28T05:59:41.374Z",
+  "attempt_count": 1,
+  "started_at": "2026-03-28T05:59:41.358Z",
+  "base_commit": "8f5e43e60c5fa6e0682f97760747c8fe817e0781",
+  "assigned_to": "TrueHawk"
 }

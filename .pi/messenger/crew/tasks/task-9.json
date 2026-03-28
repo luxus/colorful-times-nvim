@@ -1,9 +1,21 @@
 {
   "id": "task-9",
   "title": "Standardize Error Notification Patterns",
-  "status": "todo",
+  "status": "done",
   "depends_on": [],
   "created_at": "2026-03-28T05:50:30.920Z",
-  "updated_at": "2026-03-28T05:50:30.920Z",
-  "attempt_count": 0
+  "updated_at": "2026-03-28T05:59:45.007Z",
+  "attempt_count": 1,
+  "started_at": "2026-03-28T05:59:27.625Z",
+  "base_commit": "8f5e43e60c5fa6e0682f97760747c8fe817e0781",
+  "completed_at": "2026-03-28T05:59:45.007Z",
+  "summary": "Error notification patterns already standardized in commit 1f91b5f. All notifications across state.lua, schedule.lua, core.lua, and tui.lua consistently use 'colorful-times:' prefix. All 51 tests pass.",
+  "evidence": {
+    "commits": [
+      "1f91b5f3c08928c29957b2616f610355d3affe00"
+    ],
+    "tests": [
+      "51 tests passed"
+    ]
+  }
 }

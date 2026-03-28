@@ -42,6 +42,7 @@ Default configuration:
       enabled = true,
       refresh_time = 5000,           -- milliseconds between system appearance polls
       system_background_detection = nil, -- Optional command/function for Linux
+      system_background_detection_script = nil, -- Optional custom script path
       persist = true,                -- set false to disable TUI state persistence
 
       default = {
@@ -73,6 +74,13 @@ Schedule syntax:
     Linux only. Set to a function returning `"dark"` or `"light"`, or a
     command table like `{ "gsettings", "get", "..." }`. On macOS and
     known Linux DEs (KDE/GNOME) detection is automatic.
+
+`system_background_detection_script` ~
+    Linux only. Path to a custom shell script for detecting system
+    background mode. The script should exit with code 0 for dark mode
+    and code 1 for light mode. If the script is not found or not
+    executable, an error is displayed and the fallback background is used.
+    When unset (nil), the default inline KDE/GNOME detection is used.
 
 ==============================================================================
 3. Commands                                            *colorful-times-commands*

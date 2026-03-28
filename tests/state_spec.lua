@@ -25,6 +25,76 @@ describe("state.load", function()
     os.remove(tmp)
   end)
 
+  it("backs up corrupted state file with .bak.<timestamp> suffix", function()
+    local tmp = os.tmpname()
+    local dir = tmp .. "_dir"
+    vim.fn.mkdir(dir, "p")
+    local file = dir .. "/state.json"
+
+    -- Write corrupted content
+    local f = io.open(file, "w")
+    f:write("this is not valid json {[[")
+    f:close()
+
+    local orig_path = state.path
+    state.path = function() return file end
+
+    -- Load should return empty and create backup
+    local result = state.load()
+    state.path = orig_path
+
+    -- Verify empty state returned
+    assert.are.same({}, result)
+
+    -- Find backup file
+    local backup_pattern = dir .. "/state.json.bak.*"
+    local backups = vim.fn.glob(backup_pattern, true, true)
+
+    -- Cleanup
+    vim.fn.delete(dir, "rf")
+
+    -- Verify backup exists
+    assert.is_true(#backups >= 1, "backup file should be created")
+    assert.is_truthy(backups[1]:match("state%.json%.bak%.%d+_%d+$"))
+  end)
+
+  it("creates multiple backups for repeated corruptions", function()
+    local tmp = os.tmpname()
+    local dir = tmp .. "_dir"
+    vim.fn.mkdir(dir, "p")
+    local file = dir .. "/state.json"
+
+    local orig_path = state.path
+    state.path = function() return file end
+
+    -- First corruption
+    local f1 = io.open(file, "w")
+    f1:write("corruption 1")
+    f1:close()
+    state.load()
+
+    -- Small delay to ensure different timestamps
+    vim.wait(50)
+
+    -- Second corruption
+    local f2 = io.open(file, "w")
+    f2:write("corruption 2")
+    f2:close()
+    state.load()
+
+    state.path = orig_path
+
+    -- Find backup files
+    local backup_pattern = dir .. "/state.json.bak.*"
+    local backups = vim.fn.glob(backup_pattern, true, true)
+
+    -- Cleanup
+    vim.fn.delete(dir, "rf")
+
+    -- Verify multiple backups exist
+    assert.are.equal(2, #backups, "two backup files should be created")
+  end)
+
   it("parses valid JSON", function()
     local tmp = os.tmpname()
     local f = io.open(tmp, "w")
