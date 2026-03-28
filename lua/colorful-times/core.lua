@@ -14,6 +14,7 @@ local _poll_timer -- uv_timer_t|nil  (appearance poll timer)
 local _previous_bg  -- string|nil
 local _focused = true
 
+---Stop and close a timer safely
 ---@param t uv_timer_t|nil Timer to stop
 local function stop_timer(t)
   if t and not t:is_closing() then
@@ -22,15 +23,14 @@ local function stop_timer(t)
   end
 end
 
--- Return current time as minutes since midnight
+---Return current time as minutes since midnight
 ---@return integer minutes Minutes since midnight (0-1439)
 local function now_mins()
   local d = os.date("*t")
   return d.hour * 60 + d.min
 end
 
--- Determine the colorscheme + background to apply right now.
--- Returns: colorscheme string, background string
+---Determine the colorscheme + background to apply right now
 ---@return string colorscheme The colorscheme name to apply
 ---@return string background The background mode ("light", "dark", or "system")
 local function resolve_theme()
@@ -54,9 +54,10 @@ local function resolve_theme()
   return cs, bg
 end
 
--- Set colorscheme + background synchronously (must be called from main thread / vim.schedule)
+---Set colorscheme + background synchronously (must be called from main thread)
 ---@param cs string Colorscheme name
 ---@param bg string Background mode
+---@return nil
 local function set_colorscheme(cs, bg)
   _previous_bg    = bg
   vim.o.background = bg
@@ -100,8 +101,8 @@ function M.apply_colorscheme()
   end, fallback)
 end
 
----@return nil
 ---Schedule the one-shot _timer to fire at the next schedule boundary
+---@return nil
 local function arm_schedule_timer()
   stop_timer(_timer)
   _timer = nil
@@ -129,8 +130,8 @@ local function needs_system_poll()
   return bg == "system"
 end
 
----@return nil
 ---Start the repeating appearance poll _timer
+---@return nil
 local function start_poll_timer()
   stop_timer(_poll_timer)
   _poll_timer = nil
@@ -158,8 +159,8 @@ end
 
 local autocmd_registered = false
 
----@return nil
 ---Register FocusLost/FocusGained autocmds for appearance polling
+---@return nil
 local function register_focus_autocmds()
   if autocmd_registered then return end
   autocmd_registered = true
@@ -185,8 +186,8 @@ local function register_focus_autocmds()
   })
 end
 
----@return nil
 ---Enable the plugin and start all timers
+---@return nil
 local function enable_plugin()
   M.apply_colorscheme()
   arm_schedule_timer()
@@ -194,8 +195,8 @@ local function enable_plugin()
   vim.notify("colorful-times: enabled", vim.log.levels.INFO)
 end
 
----@return nil
 ---Disable the plugin and stop all timers
+---@return nil
 local function disable_plugin()
   stop_timer(_timer);      _timer = nil
   stop_timer(_poll_timer); _poll_timer = nil
@@ -204,10 +205,10 @@ local function disable_plugin()
   vim.notify("colorful-times: disabled", vim.log.levels.INFO)
 end
 
--- Validation helpers for setup()
----@param opts table
----@return boolean ok
----@return string? error
+---Validate setup options
+---@param opts table User options to validate
+---@return boolean ok True if validation passed
+---@return string? error Error message if validation failed
 local function validate_opts(opts)
   -- Validate opts.enabled
   if opts.enabled ~= nil and type(opts.enabled) ~= "boolean" then

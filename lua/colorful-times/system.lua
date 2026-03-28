@@ -13,8 +13,8 @@ function M.sysname()
   return _sysname
 end
 
--- Spawn a process and call handle_result(exit_code) when done.
--- Drains stdout/stderr to prevent pipe blocking.
+---Spawn a process and call handle_result when done
+---Drains stdout/stderr to prevent pipe blocking.
 ---@param cmd string The command to spawn
 ---@param args string[] Arguments for the command
 ---@param handle_result fun(code: integer) Callback with exit code

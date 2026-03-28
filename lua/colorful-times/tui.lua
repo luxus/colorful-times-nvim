@@ -41,8 +41,8 @@ local function pad(str, width)
   return str .. string.rep(" ", width - #str)
 end
 
----@return nil
 ---Render the TUI content in the buffer
+---@return nil
 local function render()
   if not (_state.buf and api.nvim_buf_is_valid(_state.buf)) then return end
 
@@ -206,8 +206,8 @@ end
 
 -- ─── Actions ─────────────────────────────────────────────────────────────────
 
----@return nil
 ---Save state and reload the configuration
+---@return nil
 local function save_and_reload()
   local core = require("colorful-times.core")
   if ct.config.persist then
@@ -220,8 +220,8 @@ local function save_and_reload()
   render()
 end
 
----@return nil
 ---Add a new schedule entry
+---@return nil
 local function action_add()
   entry_form(nil, function(entry)
     if not entry then return end
@@ -231,8 +231,8 @@ local function action_add()
   end)
 end
 
----@return nil
 ---Edit the currently selected schedule entry
+---@return nil
 local function action_edit()
   local idx = _state.cursor
   if idx < 1 or idx > #ct.config.schedule then return end
@@ -244,8 +244,8 @@ local function action_edit()
   end)
 end
 
----@return nil
 ---Delete the currently selected schedule entry
+---@return nil
 local function action_delete()
   local idx = _state.cursor
   if idx < 1 or idx > #ct.config.schedule then return end
@@ -262,23 +262,23 @@ local function action_delete()
   end)
 end
 
----@return nil
 ---Toggle the plugin enabled/disabled state
+---@return nil
 local function action_toggle()
   require("colorful-times.core").toggle()
   render()
 end
 
----@return nil
 ---Reload the configuration and refresh the TUI
+---@return nil
 local function action_reload()
   require("colorful-times.core").reload()
   render()
   vim.notify("colorful-times: config reloaded", vim.log.levels.INFO)
 end
 
----@return nil
 ---Show help information
+---@return nil
 local function action_help()
   local help = {
     "colorful-times keymaps:",
@@ -304,8 +304,8 @@ end
 
 -- ─── Open / Close ─────────────────────────────────────────────────────────────
 
----@return nil
 ---Close the TUI window
+---@return nil
 local function close()
   if _state.win and api.nvim_win_is_valid(_state.win) then
     api.nvim_win_close(_state.win, true)
@@ -314,6 +314,8 @@ local function close()
   _state.buf = nil
 end
 
+---Open the Colorful Times TUI window
+---Interactive schedule manager with keybindings for add/edit/delete/toggle
 ---@return nil
 function M.open()
   if _state.win and api.nvim_win_is_valid(_state.win) then
