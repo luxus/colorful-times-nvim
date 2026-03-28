@@ -2,6 +2,20 @@
 local M = {}
 
 local schedule = require("colorful-times.schedule")
+local uv = vim.uv
+
+-- Error code to human-readable message mapping
+local ERROR_MESSAGES = {
+  EACCES = "Permission denied",
+  ENOENT = "Directory does not exist",
+  ENOSPC = "Disk full",
+  EROFS = "Read-only filesystem",
+  EISDIR = "Path is a directory",
+  EINVAL = "Invalid argument",
+  EIO = "I/O error",
+  ENFILE = "Too many open files",
+  EMFILE = "Too many open files",
+}
 
 ---@param data table
 ---@return boolean ok
@@ -82,11 +96,31 @@ end
 ---@return table
 function M.load()
   local path = M.path()
-  local f = io.open(path, "r")
-  if not f then return {} end
-  local content = f:read("*a")
-  f:close()
+
+  -- Use vim.uv.fs_open for better error reporting
+  local fd, err = uv.fs_open(path, uv.constants.O_RDONLY, 0)
+  if not fd then
+    if err ~= "ENOENT" then
+      local msg = ERROR_MESSAGES[err] or ("Failed to open state file (" .. err .. ")")
+      vim.notify(
+        "colorful-times: " .. msg .. ": " .. path,
+        vim.log.levels.WARN
+      )
+    end
+    return {}
+  end
+
+  local stat = uv.fs_fstat(fd)
+  if not stat then
+    uv.fs_close(fd)
+    return {}
+  end
+
+  local content = uv.fs_read(fd, stat.size, 0)
+  uv.fs_close(fd)
+
   if not content or content == "" then return {} end
+
   local ok, result = pcall(vim.json.decode, content)
   if not ok or type(result) ~= "table" then
     vim.notify(
@@ -113,16 +147,32 @@ function M.save(data)
   local path = M.path()
   local dir  = vim.fn.fnamemodify(path, ":h")
   vim.fn.mkdir(dir, "p")
-  local f = io.open(path, "w")
-  if not f then
+
+  local content = vim.json.encode(data)
+  local bit = require("bit")
+  local flags = bit.bor(uv.constants.O_WRONLY, uv.constants.O_CREAT, uv.constants.O_TRUNC)
+  local mode = tonumber("644", 8)
+
+  -- Use vim.uv.fs_open for better error reporting
+  local fd, err = uv.fs_open(path, flags, mode)
+  if not fd then
+    local msg = ERROR_MESSAGES[err] or ("Could not write state file (" .. err .. ")")
     vim.notify(
-      "colorful-times: could not write state file: " .. path,
-      vim.log.levels.WARN
+      "colorful-times: " .. msg .. ": " .. path,
+      vim.log.levels.ERROR
     )
     return
   end
-  f:write(vim.json.encode(data))
-  f:close()
+
+  local success = uv.fs_write(fd, content, 0)
+  uv.fs_close(fd)
+
+  if not success then
+    vim.notify(
+      "colorful-times: failed to write state file: " .. path,
+      vim.log.levels.ERROR
+    )
+  end
 end
 
 ---@param base_config table

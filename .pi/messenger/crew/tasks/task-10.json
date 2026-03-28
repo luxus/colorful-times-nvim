@@ -1,9 +1,22 @@
 {
   "id": "task-10",
   "title": "Extract Magic Numbers to Constants",
-  "status": "todo",
+  "status": "done",
   "depends_on": [],
   "created_at": "2026-03-28T05:50:30.921Z",
-  "updated_at": "2026-03-28T05:50:30.921Z",
-  "attempt_count": 0
+  "updated_at": "2026-03-28T05:57:57.331Z",
+  "attempt_count": 1,
+  "started_at": "2026-03-28T05:56:26.047Z",
+  "base_commit": "1f91b5f3c08928c29957b2616f610355d3affe00",
+  "completed_at": "2026-03-28T05:57:57.331Z",
+  "summary": "Extracted all magic numbers to named constants across all modules:\n\n- tui.lua: MAX_COLORSCHEMES = 200 (committed: cf75414)\n- init.lua: DEFAULT_REFRESH_TIME documented (committed: cf75414)\n- schedule.lua: MINUTES_PER_DAY = 1440 (coordinated with JadeViper in commit: cdcc911)\n- core.lua: MS_PER_MINUTE = 60000 (committed: 7202f22)\n\nAll 84 tests pass. No bare magic numbers remain (except 0, 1 for indexing).",
+  "evidence": {
+    "commits": [
+      "cf75414",
+      "7202f22"
+    ],
+    "tests": [
+      "84 tests pass"
+    ]
+  }
 }

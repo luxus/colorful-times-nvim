@@ -2,7 +2,7 @@
   "prd": "(prompt)",
   "prompt": "Implement all fixes from the consolidated fix implementation plan:\n\nPHASE 1 (P0) - Critical:\n1. Atomic state writes in state.lua - use temp file + rename + fsync pattern\n2. Cache parsed schedule in core.lua - add module-level cache with hash-based invalidation\n\nPHASE 2 (P1):\n3. File locking for concurrent access in state.lua - POSIX flock-based\n4. Cache next_change_at results in schedule.lua\n5. Add state validation before save in state.lua\n\nPHASE 3 (P2):\n6. Fix partial config merge in state.lua - handle refresh_time, default, persist\n7. Add setup() input validation in core.lua - validate types for enabled, refresh_time, persist, schedule, default.background, system_background_detection\n8. Memoize parse_time results in schedule.lua\n\nPHASE 4 (P3):\n9. Standardize error notification patterns - add \"colorful-times:\" prefix consistently\n10. Extract magic numbers to constants (1440, 5000, 200, etc.)\n11. Improve io.open error messages using vim.uv.fs_open for better errors\n\nPHASE 5 (P4):\n12. Add missing EmmyLua annotations to undocumented functions\n13. Add backup for corrupted state files\n14. Extract Linux shell script to configurable location\n\nRespect dependencies: P0 before P1, P1-B (validation) before P2-A (setup validation), etc. Each task should be a small, testable change.",
   "created_at": "2026-03-28T05:49:08.325Z",
-  "updated_at": "2026-03-28T05:52:27.640Z",
+  "updated_at": "2026-03-28T05:57:57.331Z",
   "task_count": 14,
-  "completed_count": 4
+  "completed_count": 7
 }

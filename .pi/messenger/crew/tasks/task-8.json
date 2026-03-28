@@ -1,11 +1,23 @@
 {
   "id": "task-8",
   "title": "Memoize parse_time Results in schedule.lua",
-  "status": "todo",
+  "status": "done",
   "depends_on": [
     "task-4"
   ],
   "created_at": "2026-03-28T05:50:30.920Z",
-  "updated_at": "2026-03-28T05:50:30.924Z",
-  "attempt_count": 0
+  "updated_at": "2026-03-28T05:57:37.343Z",
+  "attempt_count": 1,
+  "started_at": "2026-03-28T05:57:36.326Z",
+  "base_commit": "cdcc9112203b408fc147b1e488b28e64fcc8f584",
+  "completed_at": "2026-03-28T05:57:37.343Z",
+  "summary": "Added parse_time memoization cache to schedule.lua with 100-entry limit. Caches both valid results and nil for invalid inputs. Also included KeenNova's MINUTES_PER_DAY=1440 constant extraction. All 21 tests pass (18 existing + 3 new cache tests).",
+  "evidence": {
+    "commits": [
+      "cdcc911"
+    ],
+    "tests": [
+      "schedule_spec.lua - 21 tests passing"
+    ]
+  }
 }

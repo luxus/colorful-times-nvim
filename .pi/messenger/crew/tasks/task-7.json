@@ -1,12 +1,24 @@
 {
   "id": "task-7",
   "title": "Add setup() Input Validation in core.lua",
-  "status": "todo",
+  "status": "done",
   "depends_on": [
     "task-2",
     "task-5"
   ],
   "created_at": "2026-03-28T05:50:30.919Z",
-  "updated_at": "2026-03-28T05:50:30.924Z",
-  "attempt_count": 0
+  "updated_at": "2026-03-28T05:57:03.093Z",
+  "attempt_count": 2,
+  "started_at": "2026-03-28T05:57:00.869Z",
+  "base_commit": "cf75414cb9f310ac1cbaa70d04d84a9be43cc3b6",
+  "completed_at": "2026-03-28T05:57:03.093Z",
+  "summary": "Added setup() input validation in core.lua with validate_opts() helper that validates: enabled (boolean), refresh_time (>=1000), persist (boolean), schedule (array with valid entries), default.background (light/dark/system), and system_background_detection (function or non-empty string array). Returns early with vim.notify error on invalid input without modifying config. Includes 5 validation tests. Also added MS_PER_MINUTE constant (coordinating with task-10).",
+  "evidence": {
+    "commits": [
+      "01e8ec975254da7e4dc53f87238cc50d350ad7a9"
+    ],
+    "tests": [
+      "8 passing core tests including 5 validation tests"
+    ]
+  }
 }
