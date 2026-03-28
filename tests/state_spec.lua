@@ -168,3 +168,250 @@ describe("FIXED: complete merge - all config keys", function()
     assert.are.same({}, result.default)
   end)
 end)
+
+-- State validation tests (task-5)
+describe("state.validate_state", function()
+  it("accepts valid complete state", function()
+    local data = {
+      enabled = true,
+      schedule = {
+        { start = "06:00", stop = "18:00", colorscheme = "day", background = "light" },
+      },
+      refresh_time = 5000,
+      persist = true,
+      default = {
+        colorscheme = "default",
+        background = "system",
+      },
+    }
+    local ok, err = state.validate_state(data)
+    assert.is_true(ok, err)
+    assert.is_nil(err)
+  end)
+
+  it("accepts valid partial state", function()
+    local data = { enabled = false }
+    local ok, err = state.validate_state(data)
+    assert.is_true(ok, err)
+    assert.is_nil(err)
+  end)
+
+  it("accepts empty state", function()
+    local ok, err = state.validate_state({})
+    assert.is_true(ok, err)
+    assert.is_nil(err)
+  end)
+
+  it("rejects non-table data", function()
+    local ok, err = state.validate_state("not a table")
+    assert.is_false(ok)
+    assert.is_truthy(err:match("must be a table"))
+  end)
+
+  describe("enabled validation", function()
+    it("rejects non-boolean enabled", function()
+      local ok, err = state.validate_state({ enabled = "true" })
+      assert.is_false(ok)
+      assert.is_truthy(err:match("enabled must be a boolean"))
+    end)
+
+    it("accepts boolean enabled", function()
+      assert.is_true(state.validate_state({ enabled = true }))
+      assert.is_true(state.validate_state({ enabled = false }))
+    end)
+
+    it("allows nil enabled", function()
+      assert.is_true(state.validate_state({}))
+    end)
+  end)
+
+  describe("schedule validation", function()
+    it("rejects non-table schedule", function()
+      local ok, err = state.validate_state({ schedule = "not an array" })
+      assert.is_false(ok)
+      assert.is_truthy(err:match("schedule must be an array"))
+    end)
+
+    it("rejects non-array schedule (dictionary style)", function()
+      local ok, err = state.validate_state({ schedule = { foo = "bar" } })
+      assert.is_false(ok)
+      assert.is_truthy(err:match("must be an array"))
+    end)
+
+    it("rejects invalid schedule entry", function()
+      local ok, err = state.validate_state({
+        schedule = { { start = "invalid", stop = "18:00", colorscheme = "test" } }
+      })
+      assert.is_false(ok)
+      assert.is_truthy(err:match("schedule entry 1"))
+    end)
+
+    it("accepts valid schedule array", function()
+      local data = {
+        schedule = {
+          { start = "06:00", stop = "12:00", colorscheme = "day" },
+          { start = "12:00", stop = "18:00", colorscheme = "afternoon", background = "dark" },
+        }
+      }
+      assert.is_true(state.validate_state(data))
+    end)
+
+    it("accepts empty schedule array", function()
+      assert.is_true(state.validate_state({ schedule = {} }))
+    end)
+
+    it("allows nil schedule", function()
+      assert.is_true(state.validate_state({}))
+    end)
+  end)
+
+  describe("refresh_time validation", function()
+    it("rejects non-number refresh_time", function()
+      local ok, err = state.validate_state({ refresh_time = "5000" })
+      assert.is_false(ok)
+      assert.is_truthy(err:match("refresh_time must be a number"))
+    end)
+
+    it("rejects zero refresh_time", function()
+      local ok, err = state.validate_state({ refresh_time = 0 })
+      assert.is_false(ok)
+      assert.is_truthy(err:match("positive integer"))
+    end)
+
+    it("rejects negative refresh_time", function()
+      local ok, err = state.validate_state({ refresh_time = -100 })
+      assert.is_false(ok)
+      assert.is_truthy(err:match("positive integer"))
+    end)
+
+    it("rejects fractional refresh_time", function()
+      local ok, err = state.validate_state({ refresh_time = 5000.5 })
+      assert.is_false(ok)
+      assert.is_truthy(err:match("integer"))
+    end)
+
+    it("accepts valid positive integer refresh_time", function()
+      assert.is_true(state.validate_state({ refresh_time = 5000 }))
+      assert.is_true(state.validate_state({ refresh_time = 1 }))
+    end)
+
+    it("allows nil refresh_time", function()
+      assert.is_true(state.validate_state({}))
+    end)
+  end)
+
+  describe("persist validation", function()
+    it("rejects non-boolean persist", function()
+      local ok, err = state.validate_state({ persist = "yes" })
+      assert.is_false(ok)
+      assert.is_truthy(err:match("persist must be a boolean"))
+    end)
+
+    it("accepts boolean persist", function()
+      assert.is_true(state.validate_state({ persist = true }))
+      assert.is_true(state.validate_state({ persist = false }))
+    end)
+
+    it("allows nil persist", function()
+      assert.is_true(state.validate_state({}))
+    end)
+  end)
+
+  describe("default validation", function()
+    it("rejects non-table default", function()
+      local ok, err = state.validate_state({ default = "not a table" })
+      assert.is_false(ok)
+      assert.is_truthy(err:match("default must be a table"))
+    end)
+
+    describe("default.background", function()
+      it("rejects invalid background value", function()
+        local ok, err = state.validate_state({ default = { background = "invalid" } })
+        assert.is_false(ok)
+        assert.is_truthy(err:match("default.background must be one of"))
+      end)
+
+      it("accepts 'light' background", function()
+        assert.is_true(state.validate_state({ default = { background = "light" } }))
+      end)
+
+      it("accepts 'dark' background", function()
+        assert.is_true(state.validate_state({ default = { background = "dark" } }))
+      end)
+
+      it("accepts 'system' background", function()
+        assert.is_true(state.validate_state({ default = { background = "system" } }))
+      end)
+
+      it("allows nil background", function()
+        assert.is_true(state.validate_state({ default = {} }))
+      end)
+    end)
+
+    describe("default.colorscheme", function()
+      it("rejects non-string colorscheme", function()
+        local ok, err = state.validate_state({ default = { colorscheme = 123 } })
+        assert.is_false(ok)
+        assert.is_truthy(err:match("default.colorscheme must be a string"))
+      end)
+
+      it("accepts string colorscheme", function()
+        assert.is_true(state.validate_state({ default = { colorscheme = "gruvbox" } }))
+      end)
+
+      it("allows nil colorscheme", function()
+        assert.is_true(state.validate_state({ default = {} }))
+      end)
+    end)
+  end)
+end)
+
+describe("state.save validation integration", function()
+  it("rejects invalid data and does not write", function()
+    local tmp = os.tmpname()
+    local dir = tmp .. "_dir"
+    vim.fn.mkdir(dir, "p")
+    local file = dir .. "/state.json"
+
+    local orig_path = state.path
+    state.path = function() return file end
+
+    local invalid_data = {
+      enabled = "not-a-boolean",
+      schedule = "not-an-array",
+    }
+
+    state.save(invalid_data)
+
+    local f = io.open(file, "r")
+    assert.is_nil(f, "file should not be created when validation fails")
+    if f then f:close() end
+
+    state.path = orig_path
+    vim.fn.delete(dir, "rf")
+  end)
+
+  it("accepts valid data and writes successfully", function()
+    local tmp = os.tmpname()
+    local dir = tmp .. "_dir"
+    vim.fn.mkdir(dir, "p")
+    local file = dir .. "/state.json"
+
+    local orig_path = state.path
+    state.path = function() return file end
+
+    local valid_data = {
+      enabled = true,
+      schedule = { { start = "06:00", stop = "18:00", colorscheme = "day" } },
+    }
+
+    state.save(valid_data)
+    local loaded = state.load()
+
+    state.path = orig_path
+    vim.fn.delete(dir, "rf")
+
+    assert.is_true(loaded.enabled)
+    assert.are.equal("day", loaded.schedule[1].colorscheme)
+  end)
+end)
