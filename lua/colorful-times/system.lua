@@ -15,9 +15,9 @@ end
 
 -- Spawn a process and call handle_result(exit_code) when done.
 -- Drains stdout/stderr to prevent pipe blocking.
----@param cmd string
----@param args string[]
----@param handle_result fun(code: integer)
+---@param cmd string The command to spawn
+---@param args string[] Arguments for the command
+---@param handle_result fun(code: integer) Callback with exit code
 local function spawn_check(cmd, args, handle_result)
   local stdout = uv.new_pipe(false)
   local stderr = uv.new_pipe(false)
@@ -33,8 +33,8 @@ local function spawn_check(cmd, args, handle_result)
   stderr:read_start(function() end)
 end
 
----@param cb fun(bg: string)
----@param fallback string
+---@param cb fun(bg: string) Callback with detected background ("light" or "dark")
+---@param fallback string Fallback background if detection fails
 function M.get_background(cb, fallback)
   local config = require("colorful-times").config
   local sysname = M.sysname()

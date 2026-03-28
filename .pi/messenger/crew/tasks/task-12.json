@@ -1,9 +1,12 @@
 {
   "id": "task-12",
   "title": "Add Missing EmmyLua Annotations to Undocumented Functions",
-  "status": "todo",
+  "status": "in_progress",
   "depends_on": [],
   "created_at": "2026-03-28T05:50:30.922Z",
-  "updated_at": "2026-03-28T06:10:27.239Z",
-  "attempt_count": 1
+  "updated_at": "2026-03-28T06:11:02.185Z",
+  "attempt_count": 2,
+  "started_at": "2026-03-28T06:11:02.150Z",
+  "base_commit": "49de7e273ad27a981a9b73ca51ee553143bfaaf2",
+  "assigned_to": "NiceTiger"
 }

@@ -7,7 +7,8 @@ local bit = require("bit")
 
 -- Platform detection for file locking support
 local _is_windows = uv.os_uname().sysname:match("Windows") ~= nil
-local _flock_available = not _is_windows
+-- vim.uv.fs_flock was added in Neovim 0.10+ / libuv 1.46+
+local _fs_flock_available = not _is_windows and uv.fs_flock ~= nil
 
 -- Flock constants (from sys/file.h)
 local LOCK_SH = 1   -- Shared lock (for reading)
@@ -15,15 +16,16 @@ local LOCK_EX = 2   -- Exclusive lock (for writing)
 local LOCK_NB = 4   -- Non-blocking (fail immediately if locked)
 local LOCK_UN = 8   -- Unlock
 
----Acquire a file lock using vim.uv.fs_flock()
+---Acquire a file lock using vim.uv.fs_flock() with fallback
 ---@param fd number File descriptor
 ---@param exclusive boolean Whether to use exclusive lock (write) or shared (read)
 ---@param timeout_ms number? Optional timeout in ms for retry (default: 5000)
 ---@return boolean ok True if lock acquired
 ---@return string? error Error message if failed
 local function acquire_lock(fd, exclusive, timeout_ms)
-  if not _flock_available then
-    return true -- Silently skip on Windows
+  -- Skip entirely on Windows or if fs_flock not available
+  if _is_windows or not _fs_flock_available then
+    return true
   end
 
   timeout_ms = timeout_ms or 5000
@@ -37,7 +39,6 @@ local function acquire_lock(fd, exclusive, timeout_ms)
       return true
     end
 
-    -- Check if we should retry (only retry if file is locked, not for other errors)
     local elapsed = (uv.hrtime() / 1e6) - start_time
     if elapsed >= timeout_ms then
       return false, "Timeout waiting for file lock"
@@ -53,7 +54,7 @@ end
 ---@param fd number File descriptor
 ---@return boolean ok
 local function release_lock(fd)
-  if not _flock_available then
+  if _is_windows or not _fs_flock_available then
     return true
   end
 

@@ -12,6 +12,7 @@ local MAX_COLORSCHEMES = 200
 
 -- ─── Snacks detection ────────────────────────────────────────────────────────
 
+---@return boolean has_snacks Whether snacks.nvim is available
 local function has_snacks()
   return pcall(require, "snacks")
 end
@@ -31,12 +32,17 @@ local NS = api.nvim_create_namespace("colorful_times_tui")
 local COL_WIDTHS = { 7, 7, 30, 8 }  -- START STOP COLORSCHEME BG
 local HEADER_SEP = string.rep("─", COL_WIDTHS[1] + COL_WIDTHS[2] + COL_WIDTHS[3] + COL_WIDTHS[4] + 9)
 
+---@param str string String to pad
+---@param width number Target width
+---@return string padded The padded string
 local function pad(str, width)
   str = tostring(str or "")
   if #str >= width then return str:sub(1, width - 1) .. " " end
   return str .. string.rep(" ", width - #str)
 end
 
+---@return nil
+---Render the TUI content in the buffer
 local function render()
   if not (_state.buf and api.nvim_buf_is_valid(_state.buf)) then return end
 
@@ -95,6 +101,9 @@ end
 
 -- Prompt for a validated HH:MM time string.
 -- Calls cb(time_str) on success, cb(nil) on cancel.
+---@param prompt_text string The prompt text to display
+---@param default string|nil Default value
+---@param cb fun(time_str: string|nil) Callback with time string or nil on cancel
 local function prompt_time(prompt_text, default, cb)
   local function ask()
     if has_snacks() then
@@ -127,6 +136,8 @@ end
 
 -- Fuzzy colorscheme picker with live preview.
 -- Calls cb(name) on confirm, cb(nil) on cancel.
+---@param _default string|nil Default colorscheme name (unused but kept for API consistency)
+---@param cb fun(name: string|nil) Callback with selected colorscheme or nil on cancel
 local function pick_colorscheme(_default, cb)
   local original_cs = vim.g.colors_name
   local original_bg = vim.o.background
@@ -171,6 +182,8 @@ local function pick_colorscheme(_default, cb)
 end
 
 -- Sequential form: collect all fields for an entry, call cb(entry) or cb(nil) on cancel.
+---@param existing table|nil Existing entry to edit, or nil for new entry
+---@param cb fun(entry: table|nil) Callback with entry table or nil on cancel
 local function entry_form(existing, cb)
   prompt_time("Start time (HH:MM)", existing and existing.start, function(start)
     if not start then cb(nil); return end
@@ -193,6 +206,8 @@ end
 
 -- ─── Actions ─────────────────────────────────────────────────────────────────
 
+---@return nil
+---Save state and reload the configuration
 local function save_and_reload()
   local core = require("colorful-times.core")
   if ct.config.persist then
@@ -205,6 +220,8 @@ local function save_and_reload()
   render()
 end
 
+---@return nil
+---Add a new schedule entry
 local function action_add()
   entry_form(nil, function(entry)
     if not entry then return end
@@ -214,6 +231,8 @@ local function action_add()
   end)
 end
 
+---@return nil
+---Edit the currently selected schedule entry
 local function action_edit()
   local idx = _state.cursor
   if idx < 1 or idx > #ct.config.schedule then return end
@@ -225,6 +244,8 @@ local function action_edit()
   end)
 end
 
+---@return nil
+---Delete the currently selected schedule entry
 local function action_delete()
   local idx = _state.cursor
   if idx < 1 or idx > #ct.config.schedule then return end
@@ -241,17 +262,23 @@ local function action_delete()
   end)
 end
 
+---@return nil
+---Toggle the plugin enabled/disabled state
 local function action_toggle()
   require("colorful-times.core").toggle()
   render()
 end
 
+---@return nil
+---Reload the configuration and refresh the TUI
 local function action_reload()
   require("colorful-times.core").reload()
   render()
   vim.notify("colorful-times: config reloaded", vim.log.levels.INFO)
 end
 
+---@return nil
+---Show help information
 local function action_help()
   local help = {
     "colorful-times keymaps:",
@@ -267,6 +294,8 @@ local function action_help()
   vim.notify(table.concat(help, "\n"), vim.log.levels.INFO)
 end
 
+---@param delta number Direction to move (-1 for up, 1 for down)
+---@return nil
 local function cursor_move(delta)
   local n = math.max(1, #ct.config.schedule)
   _state.cursor = math.max(1, math.min(n, _state.cursor + delta))
@@ -275,6 +304,8 @@ end
 
 -- ─── Open / Close ─────────────────────────────────────────────────────────────
 
+---@return nil
+---Close the TUI window
 local function close()
   if _state.win and api.nvim_win_is_valid(_state.win) then
     api.nvim_win_close(_state.win, true)

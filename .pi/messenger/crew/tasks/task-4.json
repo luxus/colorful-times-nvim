@@ -1,12 +1,12 @@
 {
   "id": "task-4",
   "title": "Cache next_change_at Results in schedule.lua",
-  "status": "in_progress",
+  "status": "done",
   "depends_on": [
     "task-2"
   ],
   "created_at": "2026-03-28T05:50:30.917Z",
-  "updated_at": "2026-03-28T06:10:32.744Z",
+  "updated_at": "2026-03-28T06:11:02.128Z",
   "attempt_count": 2,
   "last_review": {
     "verdict": "MAJOR_RETHINK",
@@ -27,5 +27,14 @@
   "review_count": 1,
   "started_at": "2026-03-28T06:10:32.720Z",
   "base_commit": "ef5036c640632ce7de7709998c2da67d8c67ef3b",
-  "assigned_to": "ZenGrove"
+  "completed_at": "2026-03-28T06:11:02.128Z",
+  "summary": "Added cache for next_change_at() results in schedule.lua with single-entry cache keyed by (time_mins, parsed_hash). Cache uses vim.inspect(parsed) for hash computation and replacement strategy. Added 4 tests verifying caching behavior with same/different inputs. All 27 schedule tests pass.",
+  "evidence": {
+    "commits": [
+      "49de7e2"
+    ],
+    "tests": [
+      "27 schedule tests pass"
+    ]
+  }
 }
