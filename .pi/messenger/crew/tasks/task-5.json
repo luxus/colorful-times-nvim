@@ -1,0 +1,14 @@
+{
+  "id": "task-5",
+  "title": "Add State Validation Before Save in state.lua",
+  "status": "in_progress",
+  "depends_on": [
+    "task-1"
+  ],
+  "created_at": "2026-03-28T05:50:30.918Z",
+  "updated_at": "2026-03-28T05:51:14.510Z",
+  "attempt_count": 1,
+  "started_at": "2026-03-28T05:51:14.449Z",
+  "base_commit": "2ddab3f0c6120ba681241549022ed1b951f3eeac",
+  "assigned_to": "NiceQuartz"
+}

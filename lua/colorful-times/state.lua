@@ -54,6 +54,22 @@ function M.merge(base_config, stored)
   if stored.enabled ~= nil then
     result.enabled = stored.enabled
   end
+  if stored.refresh_time ~= nil then
+    result.refresh_time = stored.refresh_time
+  end
+  if stored.persist ~= nil then
+    result.persist = stored.persist
+  end
+  -- Deep merge for default table using vim.tbl_deep_extend
+  -- Handle empty table case: empty stored.default should still overwrite
+  if stored.default ~= nil then
+    if next(stored.default) == nil then
+      -- Empty table: direct assignment to overwrite base
+      result.default = {}
+    else
+      result.default = vim.tbl_deep_extend("force", result.default or {}, stored.default)
+    end
+  end
   return result
 end
 

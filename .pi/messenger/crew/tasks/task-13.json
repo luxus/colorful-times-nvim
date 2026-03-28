@@ -1,0 +1,11 @@
+{
+  "id": "task-13",
+  "title": "Add Backup for Corrupted State Files",
+  "status": "todo",
+  "depends_on": [
+    "task-5"
+  ],
+  "created_at": "2026-03-28T05:50:30.922Z",
+  "updated_at": "2026-03-28T05:50:30.925Z",
+  "attempt_count": 0
+}

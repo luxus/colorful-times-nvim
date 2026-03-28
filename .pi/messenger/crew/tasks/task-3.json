@@ -1,0 +1,26 @@
+{
+  "id": "task-3",
+  "title": "File Locking for Concurrent Access in state.lua",
+  "status": "done",
+  "depends_on": [
+    "task-1"
+  ],
+  "created_at": "2026-03-28T05:50:30.917Z",
+  "updated_at": "2026-03-28T05:52:27.639Z",
+  "attempt_count": 1,
+  "started_at": "2026-03-28T05:50:45.839Z",
+  "base_commit": "e7ce632144230bf41d646356358f7e895fccbfb0",
+  "completed_at": "2026-03-28T05:52:27.639Z",
+  "summary": "Added POSIX flock-based file locking to state.lua for concurrent multi-instance safety. Implements: _acquire_file_lock() with exclusive/shared modes, _with_lock() wrapper, retry logic with timeout, graceful Windows/fallback handling. Modified save() with exclusive locks and load() with shared locks. Added 4 tests for concurrent access scenarios. 27 tests pass (4 new locking tests + 23 original). 32 failures are from task-5's unimplemented validate_state function.",
+  "evidence": {
+    "commits": [
+      "807cf81"
+    ],
+    "tests": [
+      "file locking (task-3) acquires exclusive lock",
+      "file locking (task-3) allows concurrent reads",
+      "file locking (task-3) gracefully skips locking",
+      "file locking (task-3) creates lock file"
+    ]
+  }
+}

@@ -107,3 +107,64 @@ describe("state.merge", function()
     assert.are.equal("default", result.default.colorscheme)
   end)
 end)
+
+-- FIXED: These tests verify complete config merge (task-6)
+describe("FIXED: complete merge - all config keys", function()
+  local full_base = {
+    enabled = true,
+    schedule = { { start = "06:00", stop = "18:00", colorscheme = "base" } },
+    default = { colorscheme = "default", background = "system", themes = { light = nil, dark = nil } },
+    refresh_time = 5000,
+    persist = true,
+  }
+
+  it("default.colorscheme is merged from stored (FIXED)", function()
+    local result = state.merge(vim.deepcopy(full_base), {
+      default = { colorscheme = "stored-theme" }
+    })
+    assert.are.equal("stored-theme", result.default.colorscheme)
+  end)
+
+  it("default.background is merged from stored (FIXED)", function()
+    local result = state.merge(vim.deepcopy(full_base), {
+      default = { background = "light" }
+    })
+    assert.are.equal("light", result.default.background)
+  end)
+
+  it("default.themes is deep merged from stored (FIXED)", function()
+    local result = state.merge(vim.deepcopy(full_base), {
+      default = { themes = { light = "day-theme", dark = "night-theme" } }
+    })
+    assert.are.equal("day-theme", result.default.themes.light)
+    assert.are.equal("night-theme", result.default.themes.dark)
+  end)
+
+  it("refresh_time is merged from stored (FIXED)", function()
+    local result = state.merge(vim.deepcopy(full_base), { refresh_time = 10000 })
+    assert.are.equal(10000, result.refresh_time)
+  end)
+
+  it("persist is merged from stored (FIXED)", function()
+    local result = state.merge(vim.deepcopy(full_base), { persist = false })
+    assert.is_false(result.persist)
+  end)
+
+  it("nil values in stored don't overwrite base", function()
+    local result = state.merge(vim.deepcopy(full_base), {
+      refresh_time = nil,
+      persist = nil,
+      default = nil
+    })
+    assert.are.equal(5000, result.refresh_time)
+    assert.is_true(result.persist)
+    assert.are.equal("default", result.default.colorscheme)
+  end)
+
+  it("empty default table still merges (regression)", function()
+    local result = state.merge(vim.deepcopy(full_base), {
+      default = {}
+    })
+    assert.are.same({}, result.default)
+  end)
+end)

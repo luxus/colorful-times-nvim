@@ -1,0 +1,23 @@
+{
+  "id": "task-1",
+  "title": "Atomic State Writes in state.lua",
+  "status": "done",
+  "depends_on": [],
+  "created_at": "2026-03-28T05:50:30.915Z",
+  "updated_at": "2026-03-28T05:51:43.091Z",
+  "attempt_count": 1,
+  "started_at": "2026-03-28T05:50:30.941Z",
+  "base_commit": "e7ce632144230bf41d646356358f7e895fccbfb0",
+  "completed_at": "2026-03-28T05:51:43.091Z",
+  "summary": "Implemented atomic state writes in state.lua using temp file + rename + fsync pattern. Modified save() to write to temp file (state.json.tmp.<pid>.<random>), fsync for durability, then atomic rename to target. Added comprehensive error handling with vim.uv.fs_* detailed messages and temp file cleanup on all error paths. Added 2 new tests: temp file cleanup verification and data integrity test. Updated existing tests to mark atomic writes and error info as FIXED. All 22 state tests pass.",
+  "evidence": {
+    "commits": [
+      "f92c273"
+    ],
+    "tests": [
+      "22/22 state tests pass",
+      "Atomic write temp cleanup test",
+      "Data integrity test"
+    ]
+  }
+}

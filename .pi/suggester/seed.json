@@ -1,0 +1,139 @@
+{
+  "seedVersion": 3,
+  "generatedAt": "2026-03-25T18:34:20.307Z",
+  "sourceCommit": "84eb5a200913f4254d9b1bbd2c451cca26e4ba0b",
+  "generatorVersion": "2026-03-11.2",
+  "seederPromptVersion": "2026-03-11.2",
+  "suggestionPromptVersion": "2026-03-11.1",
+  "configFingerprint": "sha256:1c8240f0803f32e5bd8896c2fabd508516dbefbc88d624d285ba5069a7cccf1a",
+  "projectIntentSummary": "colorful-times-nvim is a Neovim plugin (v2, full rewrite) that automatically changes colorschemes based on time-of-day schedules, system appearance settings (light/dark mode), or manual user control. It targets Neovim >= 0.12.0 and is written entirely in Lua. The plugin achieves zero-blocking startup overhead by lazily loading modules and using asynchronous `vim.uv` spawning for system appearance detection. It supports macOS and Linux (KDE/GNOME) for OS dark/light mode detection. A key v2 feature is a keyboard-driven TUI (Table Manager) powered by snacks.nvim (optional, with graceful fallback to vim.ui.*) that lets users manage their colorscheme schedule at runtime, with changes persisted to a JSON state file on disk. The plugin exposes three user-facing commands: `:ColorfulTimes` (opens TUI), `:ColorfulTimesToggle`, and `:ColorfulTimesReload`, plus `:checkhealth colorful-times` support.",
+  "objectivesSummary": "1. Provide seamless, automatic colorscheme switching based on time-of-day schedules and/or OS dark/light mode detection.\n2. Zero startup overhead — lazy-load all expensive modules, synchronously apply fallback defaults first, then async-detect system appearance.\n3. Modular architecture with seven focused, independently-testable modules replacing the old monolithic impl.lua.\n4. Interactive TUI (Table Manager) for runtime schedule management with snacks.nvim integration and graceful vim.ui.* fallback.\n5. Persist TUI-made schedule changes to disk (JSON state file) so they survive restarts.\n6. Pause appearance poll timer on FocusLost for zero CPU overhead when Neovim is idle.\n7. Cross-platform system background detection: macOS (AppleInterfaceStyle), Linux (KDE kreadconfig, GNOME gsettings), custom user-provided detection.\n8. Full test coverage with plenary.nvim + busted, with pure-function schedule module enabling fast isolated testing.\n9. Comprehensive :checkhealth support for diagnostics.",
+  "constraintsSummary": "1. Neovim >= 0.12.0 required — no compatibility shims for older versions.\n2. Language: Lua (LuaJIT via Neovim), no external build tools.\n3. snacks.nvim is optional — TUI must degrade gracefully without it (fall back to vim.ui.input / vim.ui.select).\n4. Test framework: plenary.nvim + busted.\n5. Formatting: 2-space indent, no tabs, 80-char soft limit, UTF-8.\n6. All `require` calls must use `local`; top-of-file where possible; lazy-load non-critical modules.\n7. EmmyLua annotations (`---@param`/`---@return`/`---@class`) required on all public functions and types.\n8. Error handling via `pcall` for risky calls, `vim.notify` with appropriate log levels, early returns over deep nesting.\n9. `vim.schedule` required for all main-thread ops called from async callbacks; always close timers properly.\n10. Use `vim.uv` for libuv; validate handles before use; always drain stdout/stderr pipes when spawning subprocesses.\n11. State persistence: only `enabled` and `schedule` are persisted; all other config comes from setup().",
+  "principlesGuidelinesSummary": "Code style follows strict conventions documented in AGENTS.md:\n- **Naming**: `snake_case` functions, `PascalCase` types/classes, `UPPER_SNAKE` constants, `_` prefix for private module-level vars and private locals.\n- **Imports**: All `require` calls local; top-of-file; lazy-load non-critical modules (core, tui loaded on demand).\n- **Annotations**: EmmyLua on all public functions and types.\n- **Error handling**: `pcall` for risky calls, `vim.notify` with log levels, early returns over deep nesting.\n- **Async**: `vim.schedule` for main-thread ops from async callbacks; always close timers properly.\n- **Vim APIs**: Prefer `vim.bo[buf]`/`vim.wo[win]` for options, `vim.api.nvim_*` over `vim.fn.*`, `vim.uv` for libuv.\n- **Iteration**: Use `vim.iter` for non-trivial table iteration chains.\n- **Performance**: Lazy-load expensive modules, cache system detection results, avoid blocking on hot paths, drain stdout/stderr pipes.\n- **Documentation**: Update `doc/colorful-times.txt` when adding/changing commands; add EmmyLua annotations to all new public API.\n- **Module purity**: `schedule.lua` is pure functions with no side effects (no vim.api calls except vim.notify). `init.lua` must not execute any logic, spawn processes, or define large functions.",
+  "implementationStatusSummary": "The v2 rewrite appears to be fully implemented. All seven planned modules exist: init.lua, core.lua, schedule.lua, system.lua, state.lua, tui.lua, health.lua. The plugin entry point (plugin/colorful-times.lua) exists. Four test spec files exist (core_spec, schedule_spec, state_spec, system_spec) plus a benchmark file. The old monolithic impl.lua has been removed. The help documentation (doc/colorful-times.txt) has been updated for v2. The config structure matches the v2 design spec exactly, with all planned features including persistence, lazy-loading via metatable, and EmmyLua type annotations.",
+  "topObjectives": [
+    "Automatic colorscheme switching based on time-of-day schedules and OS dark/light mode detection",
+    "Zero startup overhead through lazy module loading and async system detection",
+    "Interactive TUI (Table Manager) for runtime schedule management with snacks.nvim integration",
+    "Persistent TUI-made schedule changes via JSON state file",
+    "Cross-platform system background detection (macOS, Linux KDE/GNOME, custom)",
+    "Modular architecture with seven focused, independently-testable modules",
+    "Comprehensive test coverage with plenary.nvim + busted"
+  ],
+  "constraints": [
+    "Neovim >= 0.12.0 required, no backward compatibility shims",
+    "Lua only, no external build tools",
+    "snacks.nvim optional with graceful fallback to vim.ui.*",
+    "EmmyLua annotations on all public functions and types",
+    "2-space indent, 80-char soft limit, UTF-8",
+    "pcall for risky calls, vim.notify for user messaging, early returns over deep nesting",
+    "vim.schedule for main-thread ops from async callbacks",
+    "Only enabled and schedule persisted to state.json",
+    "schedule.lua must be pure functions with no side effects"
+  ],
+  "keyFiles": [
+    {
+      "path": "AGENTS.md",
+      "hash": "sha256:b5efcbd00602f254d08e63c44c581e2254f58ebdd3eb27278af67b1a91cc72b1",
+      "whyImportant": "Comprehensive project overview, code style rules, build/test commands, file structure, and performance guidelines",
+      "category": "principles_guidelines"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-03-22-colorful-times-v2-design.md",
+      "hash": "sha256:ee1e2f796e19912b92a748b096e29b491b97d3995f5a0a0cf4d8c8555d0b6ef3",
+      "whyImportant": "Detailed v2 design specification with module contracts, type definitions, timer logic, TUI design, and state persistence schema",
+      "category": "architecture"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-03-22-colorful-times-v2.md",
+      "hash": "sha256:20b5536055c678ccca517d49c8d1e6329a0ebc4b4cf5fe7f6b9d42da4b2504e3",
+      "whyImportant": "Implementation plan with task breakdown, file map, and step-by-step TDD approach for the v2 rewrite",
+      "category": "vision"
+    },
+    {
+      "path": "lua/colorful-times/init.lua",
+      "hash": "sha256:c49416e08b47ec678702344201e8a08c9c3594f905ded21891c4b2a831f9af17",
+      "whyImportant": "Plugin root with config defaults, type annotations, and metatable-based lazy loading",
+      "category": "code_entrypoint"
+    },
+    {
+      "path": "lua/colorful-times/core.lua",
+      "hash": "sha256:76a4c24ee11dec4d529385a9574ecdf825d57dea18caa1037aceab3f3c051478",
+      "whyImportant": "Main logic module owning all mutable state, timer management, and colorscheme application",
+      "category": "code_entrypoint"
+    },
+    {
+      "path": "lua/colorful-times/schedule.lua",
+      "hash": "sha256:ebc8656abb09f83cabf3e69d04ac440c970eb28bf3af92aeb20d5cc26f5e5547",
+      "whyImportant": "Pure function module for schedule parsing, validation, and matching — core scheduling logic",
+      "category": "other"
+    },
+    {
+      "path": "lua/colorful-times/tui.lua",
+      "hash": "sha256:352c19137086fb6f3101fac2776e62772e36043d69b5330db6a99eabda52f26b",
+      "whyImportant": "Table Manager TUI with snacks.nvim integration — key v2 feature for runtime schedule management",
+      "category": "other"
+    },
+    {
+      "path": "lua/colorful-times/state.lua",
+      "hash": "sha256:9b2fc6406a19e190acb4f4193ebd97b5681633ce7b4c0ed7a75cd071ade82d67",
+      "whyImportant": "JSON persistence layer for TUI-made schedule changes",
+      "category": "other"
+    },
+    {
+      "path": "lua/colorful-times/system.lua",
+      "hash": "sha256:bb84b9af0a7130d28e22fa5d8f469857d23d0dc67ebd3eef33e51b6290a2e191",
+      "whyImportant": "Async OS dark/light detection for macOS and Linux",
+      "category": "other"
+    },
+    {
+      "path": "doc/colorful-times.txt",
+      "hash": "sha256:5912013abdd1e3955f2358f86b1eb0bbdbb172fa10c2550361a8a003fead5f5c",
+      "whyImportant": "User-facing help documentation covering configuration, commands, API, and TUI",
+      "category": "other"
+    },
+    {
+      "path": "plugin/colorful-times.lua",
+      "hash": "sha256:a518665c7de67a491d2b0e4fdc18d34eab7a5810745f159b2b1f6edb63267abd",
+      "whyImportant": "Plugin entry point that registers vim commands at startup",
+      "category": "code_entrypoint"
+    }
+  ],
+  "categoryFindings": {
+    "vision": {
+      "found": true,
+      "rationale": "The v2 implementation plan document clearly articulates the project vision: a full rewrite for Neovim 0.12+ with modular architecture, TUI schedule management, and persistent state. The design spec elaborates on goals including dropping compatibility shims, adding snacks-powered TUI, and focus-aware timer pausing. The help doc provides user-facing vision of seamless dark/light mode matching with zero startup overhead.",
+      "files": [
+        "docs/superpowers/plans/2026-03-22-colorful-times-v2.md",
+        "docs/superpowers/specs/2026-03-22-colorful-times-v2-design.md",
+        "doc/colorful-times.txt"
+      ]
+    },
+    "architecture": {
+      "found": true,
+      "rationale": "The v2 design spec provides extremely detailed architecture documentation including module structure, module contracts with function signatures and type definitions, timer logic, state persistence schema, TUI design with keymaps, and the two-phase colorscheme application strategy. AGENTS.md supplements with file structure overview.",
+      "files": [
+        "docs/superpowers/specs/2026-03-22-colorful-times-v2-design.md",
+        "AGENTS.md",
+        "lua/colorful-times/init.lua"
+      ]
+    },
+    "principles_guidelines": {
+      "found": true,
+      "rationale": "AGENTS.md contains comprehensive code style rules covering formatting, imports, naming conventions, annotations, error handling, async patterns, Vim API preferences, iteration patterns, and performance guidelines. The design spec adds architectural principles like module purity for schedule.lua and lazy-loading requirements for init.lua.",
+      "files": [
+        "AGENTS.md",
+        "docs/superpowers/specs/2026-03-22-colorful-times-v2-design.md"
+      ]
+    }
+  },
+  "openQuestions": [
+    "Are there any planned v3 features or future enhancements beyond the current v2 scope?",
+    "Is there a CI/CD pipeline configured (the plan mentions updating .github/workflows/ci.yml)?",
+    "What is the current test pass/fail status — are all tests passing?",
+    "Is there a published release or is this still in active development?"
+  ],
+  "reseedNotes": "This is a well-documented Neovim plugin with excellent architecture and coding guidelines. The three key document sources are AGENTS.md (coding conventions), the v2 design spec (architecture/contracts), and the v2 implementation plan (vision/roadmap). All seven planned modules are implemented. Reseed if new modules are added, the design spec is updated, or significant architectural changes occur.",
+  "lastReseedReason": "initial_missing",
+  "lastChangedFiles": []
+}

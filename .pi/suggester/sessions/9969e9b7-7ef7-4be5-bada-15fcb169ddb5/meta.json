@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "sessionId": "9969e9b7-7ef7-4be5-bada-15fcb169ddb5",
+  "sessionFile": "/Users/luxus/.pi/agent/sessions/--Users-luxus-projects-colorful-times-nvim--/2026-03-25T18-32-33-107Z_9969e9b7-7ef7-4be5-bada-15fcb169ddb5.jsonl",
+  "cwd": "/Users/luxus/projects/colorful-times-nvim",
+  "ignoreLegacyPiSessionEntries": true,
+  "legacyMigration": {
+    "performedAt": "2026-03-25T18:32:33.599Z",
+    "importedLegacyEntries": false,
+    "legacyStateEntryCount": 0,
+    "legacyUsageEntryCount": 0,
+    "note": "Legacy suggester-state/suggester-usage pi session entries were imported once into extension-owned storage and are ignored afterwards."
+  }
+}

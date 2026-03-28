@@ -1,0 +1,14 @@
+{
+  "stateVersion": 9,
+  "steeringHistory": [
+    {
+      "turnId": "39af8487",
+      "suggestedPrompt": "continue",
+      "actualUserPrompt": "taskplane init",
+      "classification": "changed_course",
+      "similarity": 0.13636363636363635,
+      "timestamp": "2026-03-27T00:03:09.645Z"
+    }
+  ],
+  "turnsSinceLastStalenessCheck": 3
+}
