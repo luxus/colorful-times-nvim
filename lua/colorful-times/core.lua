@@ -186,6 +186,71 @@ local function disable_plugin()
   vim.notify("colorful-times: disabled", vim.log.levels.INFO)
 end
 
+-- Validation helpers for setup()
+---@param opts table
+---@return boolean ok
+---@return string? error
+local function validate_opts(opts)
+  -- Validate opts.enabled
+  if opts.enabled ~= nil and type(opts.enabled) ~= "boolean" then
+    return false, "opts.enabled must be a boolean"
+  end
+
+  -- Validate opts.refresh_time
+  if opts.refresh_time ~= nil then
+    if type(opts.refresh_time) ~= "number" or opts.refresh_time < 1000 then
+      return false, "opts.refresh_time must be an integer >= 1000"
+    end
+  end
+
+  -- Validate opts.persist
+  if opts.persist ~= nil and type(opts.persist) ~= "boolean" then
+    return false, "opts.persist must be a boolean"
+  end
+
+  -- Validate opts.schedule
+  if opts.schedule ~= nil then
+    if type(opts.schedule) ~= "table" or (#opts.schedule == 0 and next(opts.schedule)) then
+      return false, "opts.schedule must be an array"
+    end
+    for idx, entry in ipairs(opts.schedule) do
+      local ok, err = schedule.validate_entry(entry)
+      if not ok then
+        return false, string.format("opts.schedule[%d]: %s", idx, err)
+      end
+    end
+  end
+
+  -- Validate opts.default.background
+  if opts.default and opts.default.background ~= nil then
+    local valid_bgs = { light = true, dark = true, system = true }
+    if not valid_bgs[opts.default.background] then
+      return false, "opts.default.background must be 'light', 'dark', or 'system'"
+    end
+  end
+
+  -- Validate opts.system_background_detection
+  if opts.system_background_detection ~= nil then
+    local t = type(opts.system_background_detection)
+    if t ~= "function" then
+      if t ~= "table" then
+        return false, "opts.system_background_detection must be a function or array of strings"
+      end
+      -- Check it's a non-empty array of strings
+      if #opts.system_background_detection == 0 then
+        return false, "opts.system_background_detection array must not be empty"
+      end
+      for i, v in ipairs(opts.system_background_detection) do
+        if type(v) ~= "string" or v == "" then
+          return false, string.format("opts.system_background_detection[%d] must be a non-empty string", i)
+        end
+      end
+    end
+  end
+
+  return true
+end
+
 ---@return nil
 function M.toggle()
   M.config.enabled = not M.config.enabled
@@ -206,6 +271,15 @@ end
 ---@param opts ColorfulTimes.Config?
 ---@return nil
 function M.setup(opts)
+  -- Validate before any state changes
+  if opts then
+    local ok, err = validate_opts(opts)
+    if not ok then
+      vim.notify("colorful-times: " .. err, vim.log.levels.ERROR)
+      return
+    end
+  end
+
   -- Merge user opts into config
   if opts then
     local safe_opts = vim.deepcopy(opts)

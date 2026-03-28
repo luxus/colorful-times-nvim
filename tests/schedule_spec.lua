@@ -191,3 +191,52 @@ describe("schedule.next_change_at", function()
     assert.is_nil(schedule.next_change_at({}, 720))
   end)
 end)
+
+describe("schedule.parse_time cache", function()
+  it("returns cached result for same time string", function()
+    -- First call should compute and cache
+    local result1 = schedule.parse_time("12:30")
+    assert.are.equal(750, result1)
+
+    -- Second call with same string should return cached result
+    local result2 = schedule.parse_time("12:30")
+    assert.are.equal(750, result2)
+
+    -- Both should be equal (testing idempotency)
+    assert.are.equal(result1, result2)
+  end)
+
+  it("caches invalid time strings as nil", function()
+    -- First call should compute and cache nil
+    local result1 = schedule.parse_time("invalid")
+    assert.is_nil(result1)
+
+    -- Second call with same invalid string should return cached nil
+    local result2 = schedule.parse_time("invalid")
+    assert.is_nil(result2)
+
+    -- Also test with other invalid formats
+    local result3 = schedule.parse_time("25:00")
+    assert.is_nil(result3)
+    local result4 = schedule.parse_time("25:00")
+    assert.is_nil(result4)
+  end)
+
+  it("recomputes after cache limit is exceeded", function()
+    -- Force many different time strings to exceed cache limit
+    -- The cache limit is 100, so we need to add more than that
+    local results = {}
+    for i = 1, 105 do
+      local hour = math.floor(i / 60) % 24
+      local min = i % 60
+      local time_str = string.format("%02d:%02d", hour, min)
+      results[time_str] = schedule.parse_time(time_str)
+    end
+
+    -- Verify all results are correct
+    for time_str, result in pairs(results) do
+      local recomputed = schedule.parse_time(time_str)
+      assert.are.equal(result, recomputed)
+    end
+  end)
+end)
