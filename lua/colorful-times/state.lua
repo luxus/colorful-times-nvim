@@ -3,6 +3,7 @@ local M = {}
 
 local schedule = require("colorful-times.schedule")
 local uv = vim.uv
+local bit = require("bit")
 
 -- Error code to human-readable message mapping
 local ERROR_MESSAGES = {
@@ -16,6 +17,12 @@ local ERROR_MESSAGES = {
   ENFILE = "Too many open files",
   EMFILE = "Too many open files",
 }
+
+---@param err string|nil
+---@return boolean
+local function is_enoent(err)
+  return err and err:match("^ENOENT") ~= nil
+end
 
 ---@param data table
 ---@return boolean ok
@@ -137,7 +144,6 @@ local function backup_corrupted_file(path)
     return backup_path, false
   end
 
-  local bit = require("bit")
   local flags = bit.bor(uv.constants.O_WRONLY, uv.constants.O_CREAT, uv.constants.O_TRUNC)
   local mode = tonumber("644", 8)
 
@@ -183,8 +189,9 @@ function M.load()
   -- Use vim.uv.fs_open for better error reporting
   local fd, err = uv.fs_open(path, uv.constants.O_RDONLY, 0)
   if not fd then
-    if err ~= "ENOENT" then
-      local msg = ERROR_MESSAGES[err] or ("Failed to open state file (" .. err .. ")")
+    if not is_enoent(err) then
+      local code = err and err:match("^(%S+):") or err
+      local msg = ERROR_MESSAGES[code] or ("Failed to open state file (" .. (err or "unknown") .. ")")
       vim.notify(
         "colorful-times: " .. msg .. ": " .. path,
         vim.log.levels.WARN
@@ -230,14 +237,14 @@ function M.save(data)
   vim.fn.mkdir(dir, "p")
 
   local content = vim.json.encode(data)
-  local bit = require("bit")
   local flags = bit.bor(uv.constants.O_WRONLY, uv.constants.O_CREAT, uv.constants.O_TRUNC)
   local mode = tonumber("644", 8)
 
   -- Use vim.uv.fs_open for better error reporting
   local fd, err = uv.fs_open(path, flags, mode)
   if not fd then
-    local msg = ERROR_MESSAGES[err] or ("Could not write state file (" .. err .. ")")
+    local code = err and err:match("^(%S+):") or err
+    local msg = ERROR_MESSAGES[code] or ("Could not write state file (" .. (err or "unknown") .. ")")
     vim.notify(
       "colorful-times: " .. msg .. ": " .. path,
       vim.log.levels.ERROR
