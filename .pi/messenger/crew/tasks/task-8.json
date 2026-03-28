@@ -1,23 +1,33 @@
 {
   "id": "task-8",
   "title": "Memoize parse_time Results in schedule.lua",
-  "status": "done",
+  "status": "in_progress",
   "depends_on": [
     "task-4"
   ],
   "created_at": "2026-03-28T05:50:30.920Z",
-  "updated_at": "2026-03-28T05:57:37.343Z",
-  "attempt_count": 1,
-  "started_at": "2026-03-28T05:57:36.326Z",
-  "base_commit": "cdcc9112203b408fc147b1e488b28e64fcc8f584",
-  "completed_at": "2026-03-28T05:57:37.343Z",
-  "summary": "Added parse_time memoization cache to schedule.lua with 100-entry limit. Caches both valid results and nil for invalid inputs. Also included KeenNova's MINUTES_PER_DAY=1440 constant extraction. All 21 tests pass (18 existing + 3 new cache tests).",
-  "evidence": {
-    "commits": [
-      "cdcc911"
+  "updated_at": "2026-03-28T06:05:07.147Z",
+  "attempt_count": 2,
+  "last_review": {
+    "verdict": "NEEDS_WORK",
+    "summary": "The implementation is mostly correct and follows the project conventions, but there's a critical bug in the nil caching that needs to be fixed.",
+    "issues": [
+      "Issue 1 (Lua semantics bug)**: The nil caching doesn't actually work. In Lua, `table[key] = nil` removes the key from the table—it doesn't store nil. My test confirms that second calls with invalid time strings are still cache misses. The `rawget` pattern used doesn't help because you can't distinguish between \"key doesn't exist\" and \"key was removed by nil assignment\" in standard Lua tables.",
+      "Issue 2 (Inefficient cache size check)**: Lines 35-37 count cache entries with `pairs()` on every single insertion. This is O(n) overhead for every cache operation, which defeats the purpose of caching for performance.",
+      "Issue 3 (Test doesn't prove caching)**: The test \"caches invalid time strings as nil\" passes even without working caching because the parsing function naturally returns nil for invalid inputs. It doesn't actually verify that the cache is being used."
     ],
-    "tests": [
-      "schedule_spec.lua - 21 tests passing"
-    ]
-  }
+    "suggestions": [
+      "Suggestion 1 (Fix nil caching)**: Use a sentinel value to represent cached nil results:",
+      "Store: _parse_time_cache[str] = _CACHE_NIL",
+      "Check: if rawget(_parse_time_cache, str) ~= nil then ...",
+      "Return: local cached = _parse_time_cache[str]; return cached == _CACHE_NIL and nil or cached",
+      "Suggestion 2 (Track cache size separately)**: Maintain a `_cache_size` counter instead of counting with `pairs()` on every insertion.",
+      "Suggestion 3 (Improve test verification)**: Add a test that monkey-patches `string.match` or uses a counter to prove that the second call doesn't re-execute the parsing logic."
+    ],
+    "reviewed_at": "2026-03-28T06:03:08.546Z"
+  },
+  "review_count": 1,
+  "started_at": "2026-03-28T06:05:07.119Z",
+  "base_commit": "ec6a8ce5ca5cb7af83ed023f0a4f7a029b7f49e2",
+  "assigned_to": "GoldOwl"
 }

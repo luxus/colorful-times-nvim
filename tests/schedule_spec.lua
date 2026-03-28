@@ -85,12 +85,16 @@ describe("schedule.preprocess", function()
   end)
 
   it("skips and reports invalid entries", function()
+    -- Clear any cached state that might affect this test
+    package.loaded["colorful-times.schedule"] = nil
+    local clean_schedule = require("colorful-times.schedule")
+    
     local errors = {}
     -- patch vim.notify to capture messages
     local orig = vim.notify
     vim.notify = function(msg, _) table.insert(errors, msg) end
 
-    local parsed = schedule.preprocess({
+    local parsed = clean_schedule.preprocess({
       { start = "invalid", stop = "18:00", colorscheme = "x" },
       { start = "06:00",   stop = "18:00", colorscheme = "y" },
     }, "dark")
@@ -194,12 +198,16 @@ end)
 
 describe("schedule.parse_time cache", function()
   it("returns cached result for same time string", function()
+    -- Reload module to get fresh cache
+    package.loaded["colorful-times.schedule"] = nil
+    local test_schedule = require("colorful-times.schedule")
+    
     -- First call should compute and cache
-    local result1 = schedule.parse_time("12:30")
+    local result1 = test_schedule.parse_time("12:30")
     assert.are.equal(750, result1)
 
     -- Second call with same string should return cached result
-    local result2 = schedule.parse_time("12:30")
+    local result2 = test_schedule.parse_time("12:30")
     assert.are.equal(750, result2)
 
     -- Both should be equal (testing idempotency)
@@ -207,22 +215,96 @@ describe("schedule.parse_time cache", function()
   end)
 
   it("caches invalid time strings as nil", function()
+    -- Reload module to get fresh cache
+    package.loaded["colorful-times.schedule"] = nil
+    local test_schedule = require("colorful-times.schedule")
+    
     -- First call should compute and cache nil
-    local result1 = schedule.parse_time("invalid")
+    local result1 = test_schedule.parse_time("invalid")
     assert.is_nil(result1)
 
     -- Second call with same invalid string should return cached nil
-    local result2 = schedule.parse_time("invalid")
+    local result2 = test_schedule.parse_time("invalid")
     assert.is_nil(result2)
 
     -- Also test with other invalid formats
-    local result3 = schedule.parse_time("25:00")
+    local result3 = test_schedule.parse_time("25:00")
     assert.is_nil(result3)
-    local result4 = schedule.parse_time("25:00")
+    local result4 = test_schedule.parse_time("25:00")
     assert.is_nil(result4)
   end)
 
+  it("actually uses cache - string.match not called on second access", function()
+    -- Reload module to get fresh cache
+    package.loaded["colorful-times.schedule"] = nil
+    local test_schedule = require("colorful-times.schedule")
+    
+    -- Monkey-patch string.match to count calls
+    local orig_match = string.match
+    local call_count = 0
+    string.match = function(s, p)
+      call_count = call_count + 1
+      return orig_match(s, p)
+    end
+
+    -- First call should use string.match
+    test_schedule.parse_time("14:45")
+    assert.are.equal(1, call_count)
+
+    -- Second call with same string should NOT use string.match (cache hit)
+    test_schedule.parse_time("14:45")
+    assert.are.equal(1, call_count) -- Should still be 1, not 2
+
+    -- Third call with different string should use string.match again
+    test_schedule.parse_time("09:30")
+    assert.are.equal(2, call_count)
+
+    -- Fourth call with first string should still be cached
+    test_schedule.parse_time("14:45")
+    assert.are.equal(2, call_count)
+
+    -- Restore original
+    string.match = orig_match
+  end)
+
+  it("actually caches invalid results - string.match not called on second access", function()
+    -- Reload module to get fresh cache
+    package.loaded["colorful-times.schedule"] = nil
+    local test_schedule = require("colorful-times.schedule")
+    
+    -- Monkey-patch string.match to count calls
+    local orig_match = string.match
+    local call_count = 0
+    string.match = function(s, p)
+      call_count = call_count + 1
+      return orig_match(s, p)
+    end
+
+    -- First call with invalid time should use string.match
+    test_schedule.parse_time("not-a-time")
+    assert.are.equal(1, call_count)
+
+    -- Second call with same invalid string should NOT use string.match (cache hit)
+    test_schedule.parse_time("not-a-time")
+    assert.are.equal(1, call_count) -- Should still be 1, not 2
+
+    -- Third call with different invalid string should use string.match again
+    test_schedule.parse_time("also-invalid")
+    assert.are.equal(2, call_count)
+
+    -- Fourth call with first invalid string should still be cached
+    test_schedule.parse_time("not-a-time")
+    assert.are.equal(2, call_count)
+
+    -- Restore original
+    string.match = orig_match
+  end)
+
   it("recomputes after cache limit is exceeded", function()
+    -- Reload module to get fresh cache
+    package.loaded["colorful-times.schedule"] = nil
+    local test_schedule = require("colorful-times.schedule")
+    
     -- Force many different time strings to exceed cache limit
     -- The cache limit is 100, so we need to add more than that
     local results = {}
@@ -230,12 +312,12 @@ describe("schedule.parse_time cache", function()
       local hour = math.floor(i / 60) % 24
       local min = i % 60
       local time_str = string.format("%02d:%02d", hour, min)
-      results[time_str] = schedule.parse_time(time_str)
+      results[time_str] = test_schedule.parse_time(time_str)
     end
 
     -- Verify all results are correct
     for time_str, result in pairs(results) do
-      local recomputed = schedule.parse_time(time_str)
+      local recomputed = test_schedule.parse_time(time_str)
       assert.are.equal(result, recomputed)
     end
   end)

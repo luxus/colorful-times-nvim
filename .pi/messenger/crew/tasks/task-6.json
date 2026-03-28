@@ -1,14 +1,23 @@
 {
   "id": "task-6",
   "title": "Fix Partial Config Merge in state.lua",
-  "status": "in_progress",
+  "status": "done",
   "depends_on": [
     "task-5"
   ],
   "created_at": "2026-03-28T05:50:30.919Z",
-  "updated_at": "2026-03-28T06:02:00.693Z",
+  "updated_at": "2026-03-28T06:02:20.082Z",
   "attempt_count": 2,
   "started_at": "2026-03-28T06:02:00.638Z",
   "base_commit": "df29a11080b454b63750c69c04907b6065c296a1",
-  "assigned_to": "QuickHawk"
+  "completed_at": "2026-03-28T06:02:20.081Z",
+  "summary": "Verified complete config merge implementation in state.lua - merge() already correctly handles all config keys (refresh_time, persist, default.colorscheme, default.background, default.themes with deep merge), nil values don't overwrite base, empty tables still overwrite. All 53 tests pass including FIXED regression tests.",
+  "evidence": {
+    "commits": [
+      "ec6a8ce"
+    ],
+    "tests": [
+      "53 passing in state_spec.lua"
+    ]
+  }
 }

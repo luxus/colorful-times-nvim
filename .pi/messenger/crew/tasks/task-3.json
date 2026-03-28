@@ -1,12 +1,12 @@
 {
   "id": "task-3",
   "title": "File Locking for Concurrent Access in state.lua",
-  "status": "done",
+  "status": "blocked",
   "depends_on": [
     "task-1"
   ],
   "created_at": "2026-03-28T05:50:30.917Z",
-  "updated_at": "2026-03-28T05:52:27.639Z",
+  "updated_at": "2026-03-28T06:02:43.919Z",
   "attempt_count": 1,
   "started_at": "2026-03-28T05:50:45.839Z",
   "base_commit": "e7ce632144230bf41d646356358f7e895fccbfb0",
@@ -22,5 +22,27 @@
       "file locking (task-3) gracefully skips locking",
       "file locking (task-3) creates lock file"
     ]
-  }
+  },
+  "last_review": {
+    "verdict": "MAJOR_RETHINK",
+    "summary": "The file locking implementation for task-3 was **completely lost** during a rebase abort (commit 807cf81 exists in reflog but not in current branch). The current state.lua has NO file locking code at all - it was never recovered after the rebase conflict.\n\nAdditionally, examining the lost implementation reveals **fundamental design flaws** that would make it ineffective even if recovered:",
+    "issues": [
+      "Critical (Blocking)**: The implementation is entirely missing from the current branch. The commit 807cf81 that added flock support was lost during a rebase abort at HEAD@{17}.",
+      "Critical (Design flaw in lost code)**: The flock implementation in commit 807cf81 is fundamentally broken - it uses `flock --nonblock -c 'exit 0'` which:",
+      "Major**: The implementation uses `vim.uv.constants.O_WRONLY + ...` instead of `bit.bor()` which was fixed in commit 8f5e43e but would regress if the old code is restored.",
+      "Major**: Tests for file locking in the lost commit don't actually test concurrent multi-process access - they just run sequential operations that would pass even without locking.",
+      "Missing**: The task spec asks for `vim.uv.fs_flock()` as primary implementation, but the lost code only uses external `flock` command with the broken pattern above."
+    ],
+    "suggestions": [
+      "Keeping the flock process alive during the entire operation (e.g., `flock lockfile sleep 10 &`), OR",
+      "Using file descriptor-based locking that persists across operations",
+      "Atomic temp-file + rename pattern (already done in later commits for single-instance atomicity)",
+      "Use separate lock directory creation (mkdir is atomic on POSIX)",
+      "Document that multi-instance state sharing is not supported rather than providing broken locking",
+      "Note**: The later commits (df29a11, 8f5e43e, etc.) added valuable features (backup, bit.bor fix, validation) that would be lost if the old 807cf81 code is simply cherry-picked. Any recovery must merge with the current state.lua, not replace it."
+    ],
+    "reviewed_at": "2026-03-28T06:02:43.918Z"
+  },
+  "review_count": 1,
+  "blocked_reason": "Reviewer: The file locking implementation for task-3 was **completely lost** during a rebase abort (commit 807cf81 exists in reflo"
 }

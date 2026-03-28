@@ -7,36 +7,45 @@ local MINUTES_PER_DAY = 1440
 -- Module-level cache for parse_time results (including nil for invalid inputs)
 local _parse_time_cache = {}
 local _PARSE_TIME_CACHE_LIMIT = 100
+local _cache_size = 0
+
+-- Sentinel value to represent cached nil results (since table[key] = nil removes the key in Lua)
+local _CACHE_NIL = {}
 
 ---@param str string
 ---@return integer|nil
 function M.parse_time(str)
-  -- Check cache first (using rawget pattern to handle nil values)
-  if _parse_time_cache[str] ~= nil or rawget(_parse_time_cache, str) ~= nil then
-    return _parse_time_cache[str]
+  -- Check cache first using rawget to distinguish "not in cache" from "cached nil"
+  local cached = rawget(_parse_time_cache, str)
+  if cached ~= nil then
+    -- Return nil for cached nil sentinel, otherwise return cached value
+    if cached == _CACHE_NIL then
+      return nil
+    end
+    return cached
   end
 
   local hour, min = str:match("^(%d%d?):(%d%d)$")
   if not hour then
-    _parse_time_cache[str] = nil
+    _parse_time_cache[str] = _CACHE_NIL
+    _cache_size = _cache_size + 1
     return nil
   end
   hour, min = tonumber(hour), tonumber(min)
   if hour >= 24 or min >= 60 then
-    _parse_time_cache[str] = nil
+    _parse_time_cache[str] = _CACHE_NIL
+    _cache_size = _cache_size + 1
     return nil
   end
   local result = hour * 60 + min
   _parse_time_cache[str] = result
+  _cache_size = _cache_size + 1
 
   -- Limit cache size to prevent unbounded growth
-  local cache_size = 0
-  for _ in pairs(_parse_time_cache) do
-    cache_size = cache_size + 1
-  end
-  if cache_size > _PARSE_TIME_CACHE_LIMIT then
+  if _cache_size > _PARSE_TIME_CACHE_LIMIT then
     -- Simple strategy: clear cache when limit exceeded
     _parse_time_cache = {}
+    _cache_size = 1
     _parse_time_cache[str] = result
   end
 

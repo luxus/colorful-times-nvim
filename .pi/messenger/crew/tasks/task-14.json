@@ -4,18 +4,33 @@
   "status": "done",
   "depends_on": [],
   "created_at": "2026-03-28T05:50:30.923Z",
-  "updated_at": "2026-03-28T06:01:40.566Z",
-  "attempt_count": 1,
-  "started_at": "2026-03-28T05:59:46.711Z",
-  "base_commit": "8f5e43e60c5fa6e0682f97760747c8fe817e0781",
-  "completed_at": "2026-03-28T06:01:40.566Z",
-  "summary": "Task-14 was already implemented in commit df29a11 (feat(state): add backup for corrupted state files). The system_background_detection_script config option was added to init.lua, system.lua was updated with script validation and execution logic, and documentation was added to doc/colorful-times.txt. All 86 tests pass.",
+  "updated_at": "2026-03-28T06:06:38.026Z",
+  "attempt_count": 2,
+  "last_review": {
+    "verdict": "NEEDS_WORK",
+    "summary": "The implementation of the configurable Linux shell script feature is solid and well-structured. The code correctly adds the `system_background_detection_script` config option, validates the script (exists and executable), and falls back gracefully with appropriate error messages. Documentation is also properly updated.\n\nHowever, the task acceptance criteria explicitly requires tests for the custom script functionality (\"Add test: Verify custom script execution, verify fallback to default\"), and these tests are missing from `tests/system_spec.lua`.",
+    "issues": [
+      "Issue 1: Missing required tests for `system_background_detection_script` in `tests/system_spec.lua`. The acceptance criteria explicitly requires tests to verify: (a) custom script execution works correctly, and (b) fallback to default behavior when script is invalid."
+    ],
+    "suggestions": [
+      "Suggestion 1: Add tests to `tests/system_spec.lua` covering:",
+      "Custom script execution: Create a temporary executable script that exits 0 or 1, set `config.system_background_detection_script`, and verify the callback receives \"dark\" or \"light\" accordingly",
+      "Fallback behavior: Test with non-existent path and non-executable file to verify error notifications and fallback to default background",
+      "Suggestion 2 (optional): Consider adding a check for directories (a common mistake) - `uv.fs_stat` returns a table with a `type` field that could be \"directory\", which would pass the executable check but fail when trying to execute"
+    ],
+    "reviewed_at": "2026-03-28T06:04:38.868Z"
+  },
+  "review_count": 1,
+  "started_at": "2026-03-28T06:05:24.564Z",
+  "base_commit": "ff1a58b1d9168437d25ca1f763b695e2bd670b5d",
+  "completed_at": "2026-03-28T06:06:38.026Z",
+  "summary": "Added directory validation and comprehensive tests for system_background_detection_script. Tests cover: custom script execution (exit 0/1), fallback for non-existent script, non-executable script, and directory paths. All 62 tests pass.",
   "evidence": {
     "commits": [
-      "df29a11080b454b63750c69c04907b6065c296a1"
+      "3bc7bfb"
     ],
     "tests": [
-      "86 tests passed"
+      "PlenaryBustedDirectory tests/"
     ]
   }
 }
