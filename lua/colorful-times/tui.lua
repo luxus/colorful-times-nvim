@@ -105,7 +105,7 @@ local function prompt_time(prompt_text, default, cb)
         if sched.parse_time(value) then
           cb(value)
         else
-          vim.notify("Invalid time: '" .. value .. "' (use HH:MM)", vim.log.levels.WARN)
+          vim.notify("colorful-times: invalid time: '" .. value .. "' (use HH:MM)", vim.log.levels.WARN)
           ask()  -- re-prompt
         end
       end)
@@ -115,7 +115,7 @@ local function prompt_time(prompt_text, default, cb)
         if sched.parse_time(value) then
           cb(value)
         else
-          vim.notify("Invalid time: '" .. value .. "' (use HH:MM)", vim.log.levels.WARN)
+          vim.notify("colorful-times: invalid time: '" .. value .. "' (use HH:MM)", vim.log.levels.WARN)
           ask()
         end
       end)
