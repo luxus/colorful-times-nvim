@@ -1,6 +1,6 @@
 # Future Optimization Ideas
 
-## ✅ Completed (15 optimizations)
+## ✅ Completed (13 optimizations)
 
 | # | Optimization | Location | Impact |
 |---|--------------|----------|--------|
@@ -16,70 +16,50 @@
 | 10 | Debounced state writes (500ms) | tui.lua | Reduced disk I/O |
 | 11 | Static TUI header cache | tui.lua | Faster rendering |
 | 12 | Platform detection lookup | system.lua | O(1) platform check |
-| **13** | **Async startup via vim.defer_fn** | **core.lua** | **41% faster startup (6.88ms → 4.1ms)** |
+| 13 | Async startup via vim.defer_fn | core.lua | **41% faster startup (6.88ms → 4.1ms)** |
 
-## 🚫 Not Pursued (Insufficient Benefit)
+## 🚫 Tried & Reverted (6 experiments - all regressed)
+
+| Idea | Result | Lesson |
+|------|--------|--------|
+| Split validation (fast/deferred) | +22% slower | Small schedules already fast |
+| Lazy submodule loading with getters | +23% slower | Getter overhead > benefit |
+| Shallow copy config merging | +27% slower | `vim.deepcopy` is C-optimized |
+| Closure-based lazy loading | +22% slower | Metatable `__index` is optimal |
+| vim.validate() with pcall | +4% slower | pcall overhead cancelled benefit |
+| Function-level lazy loading | +24% slower | Schedule still needed for validation |
+
+## 🚫 Not Pursued (Insufficient benefit for typical use)
 
 | Idea | Why Not Pursued |
 |------|-----------------|
-| Split validation (fast/deferred) | Added overhead for typical small schedules (<10 entries) |
-| Lazy submodule loading with getters | `require()` check overhead exceeded benefit |
-| Shallow copy config merging | `pairs()` iteration slower than C-optimized `vim.deepcopy` |
-| Closure-based lazy loading | Worse than metatable `__index` approach |
-| vim.validate() with pcall | pcall overhead cancelled out C-speed benefit |
-| Function-level lazy loading | Schedule still needed for sync validation, added overhead |
+| Memory pool for parsed entries | Only relevant for >100 entry schedules (edge case) |
+| Timer coalescing | Complexity not worth it for typical 5s poll intervals |
 
-## 🔄 Future Ideas (Runtime/Edge Cases)
+## 🔄 Active: Runtime Performance
 
-### Runtime Performance (Not Startup)
+### Current Target: `next_change_at` Optimization
 
-1. **Precompute boundary table**: For `next_change_at`, precompute sorted unique boundaries once. Complexity: O(n) → O(log n) for large schedules (>20 entries).
+**Problem**: `next_change_at()` is O(n) - iterates all entries and boundaries every call
+**Idea**: Precompute sorted unique boundaries once → O(log n) via binary search
+**Benefit**: Significant for large schedules (>20 entries)
+**Status**: NOT YET TRIED
 
-2. **Timer coalescing**: When schedule timer and poll timer fire close together, coalesce into single callback.
-
-3. **Incremental schedule validation in TUI**: When editing a single entry, only validate that entry instead of full schedule.
-
-### Edge Cases
-
-4. **Memory pool for parsed entries**: For very large schedules (>100 entries), use object pooling to reduce GC pressure.
-
-### Features
-
-5. **Fuzzy schedule matching**: Support "sunrise"/"sunset" keywords that resolve to actual times.
-
-6. **Plugin API for custom themes**: Allow users to register custom theme providers.
+Implementation approach:
+1. Add `boundaries` field to parsed schedule (sorted array of unique boundaries)
+2. Add `next_boundary_idx` field (circular index for current position)
+3. Modify `next_change_at` to use binary search or cached index
 
 ---
 
-## 🧪 Startup Optimization Research (Completed)
+## 📋 Backlog (Future Ideas)
 
-### Results Summary
-- **Baseline**: 6.88ms total startup time
-- **Optimized**: ~4.1ms total startup time
-- **Improvement**: ~41% faster, zero-blocking startup
+### Features (Not Performance)
 
-### Key Optimizations Applied
-1. **Deferred state loading** - Moved `state.load()` (file I/O) from sync setup() to async `vim.defer_fn(0)`
-2. **Deferred autocmd registration** - Moved autocmd creation to deferred init
-3. **Deferred colorscheme application** - First theme apply happens async
-4. **Deferred timer setup** - All `uv.new_timer()` calls happen async
+1. **Fuzzy schedule matching**: Support "sunrise"/"sunset" keywords that resolve to actual times
+2. **Plugin API for custom themes**: Allow users to register custom theme providers
+3. **Incremental schedule validation in TUI**: When editing a single entry, only validate that entry
 
-### Experiments That Did NOT Work
-1. **Split validation (fast/deferred)** - Added overhead for small schedules
-2. **Lazy submodule loading with getters** - Function call overhead exceeded benefit
-3. **Shallow copy config merging** - `pairs()` iteration slower than `vim.deepcopy`
-4. **Closure-based lazy loading** - Worse than metatable `__index` approach
-5. **vim.validate() with pcall** - pcall overhead cancelled out C-speed benefit
+### Edge Cases
 
-### Lessons Learned
-- `vim.deepcopy` is highly optimized C code - hard to beat with Lua
-- Metatable `__index` with static key table is optimal for lazy loading
-- For typical schedules (<10 entries), validation is already fast enough
-- `vim.defer_fn(0)` is the modern pattern for zero-blocking startup
-- 4.1ms appears to be near the practical limit for this architecture
-
-### Remaining Theoretical Optimizations
-- **Precompute boundary table**: Would help runtime O(n)→O(log n), not startup
-- **Timer coalescing**: Runtime optimization, not startup
-- **Memory pooling**: Only relevant for schedules with >100 entries
-- **Config freezing**: Safety feature, not performance
+4. **Large schedule optimization**: For schedules with >50 entries, consider additional optimizations
