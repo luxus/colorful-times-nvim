@@ -31,16 +31,9 @@
 
 ---
 
-## 🚫 Tried & Reverted (6 experiments - all regressed)
+## 🚫 Tried & Reverted (6 experiments - documented in autoresearch.md)
 
-| Idea | Result | Lesson |
-|------|--------|--------|
-| Split validation (fast/deferred) | +22% slower | Small schedules already fast |
-| Lazy submodule loading with getters | +23% slower | Getter overhead > benefit |
-| Shallow copy config merging | +27% slower | `vim.deepcopy` is C-optimized |
-| Closure-based lazy loading | +22% slower | Metatable `__index` is optimal |
-| vim.validate() with pcall | +4% slower | pcall overhead cancelled benefit |
-| Function-level lazy loading | +24% slower | Schedule still needed for validation |
+All regressed 4-27%. See autoresearch.md for details. Do not retry.
 
 ## 🚫 Not Pursued (Insufficient benefit for typical use)
 
