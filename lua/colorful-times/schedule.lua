@@ -1,62 +1,59 @@
 -- lua/colorful-times/schedule.lua
+-- Streamlined schedule parsing with vim.iter patterns
+
 local M = {}
 
--- Constants
 local MINUTES_PER_DAY = 1440
 
--- Module-level cache for parse_time results (including nil for invalid inputs)
-local _parse_time_cache = {}
-local _PARSE_TIME_CACHE_LIMIT = 100
-local _cache_size = 0
+-- Simple LRU cache for parse_time (max 100 entries)
+local _time_cache = {}
+local _time_cache_order = {}
+local _CACHE_LIMIT = 100
+local _CACHE_NIL = {}  -- Sentinel for cached nil values
 
--- Sentinel value to represent cached nil results (since table[key] = nil removes the key in Lua)
-local _CACHE_NIL = {}
-
--- Cache for next_change_at results (single entry, keyed by time_mins + parsed_hash)
-local _next_change_cache = { time_mins = nil, parsed_hash = nil, result = nil }
-
+---Parse HH:MM time string to minutes since midnight
 ---@param str string
 ---@return integer|nil
 function M.parse_time(str)
-  -- Check cache first using rawget to distinguish "not in cache" from "cached nil"
-  local cached = rawget(_parse_time_cache, str)
+  -- Check cache using rawget to distinguish nil from not-cached
+  local cached = rawget(_time_cache, str)
   if cached ~= nil then
-    -- Return nil for cached nil sentinel, otherwise return cached value
-    if cached == _CACHE_NIL then
-      return nil
-    end
+    if cached == _CACHE_NIL then return nil end
     return cached
   end
-
+  
   local hour, min = str:match("^(%d%d?):(%d%d)$")
   if not hour then
-    _parse_time_cache[str] = _CACHE_NIL
-    _cache_size = _cache_size + 1
+    _time_cache[str] = _CACHE_NIL
+    table.insert(_time_cache_order, str)
     return nil
   end
+  
   hour, min = tonumber(hour), tonumber(min)
   if hour >= 24 or min >= 60 then
-    _parse_time_cache[str] = _CACHE_NIL
-    _cache_size = _cache_size + 1
+    _time_cache[str] = _CACHE_NIL
+    table.insert(_time_cache_order, str)
     return nil
   end
+  
   local result = hour * 60 + min
-  _parse_time_cache[str] = result
-  _cache_size = _cache_size + 1
-
-  -- Limit cache size to prevent unbounded growth
-  if _cache_size > _PARSE_TIME_CACHE_LIMIT then
-    -- Simple strategy: clear cache when limit exceeded
-    _parse_time_cache = {}
-    _cache_size = 1
-    _parse_time_cache[str] = result
+  
+  -- Simple cache management: clear when limit reached
+  if #_time_cache_order >= _CACHE_LIMIT then
+    _time_cache = {}
+    _time_cache_order = {}
   end
-
+  
+  _time_cache[str] = result
+  table.insert(_time_cache_order, str)
+  
   return result
 end
 
+---Validate a schedule entry
 ---@param entry table
----@return boolean, string?
+---@return boolean ok
+---@return string? error
 function M.validate_entry(entry)
   if not entry.colorscheme or entry.colorscheme == "" then
     return false, "missing colorscheme"
@@ -68,104 +65,87 @@ function M.validate_entry(entry)
     return false, "invalid stop time: " .. tostring(entry.stop)
   end
   if entry.background and not vim.tbl_contains({ "light", "dark", "system" }, entry.background) then
-    return false, "invalid background: " .. entry.background .. " (must be light, dark, or system)"
+    return false, "invalid background: " .. entry.background
   end
   return true
 end
 
----@param raw_schedule table
----@param default_background string
+---Preprocess raw schedule into parsed entries
+---@param raw table[]
+---@param default_bg string
 ---@return ColorfulTimes.ParsedEntry[]
-function M.preprocess(raw_schedule, default_background)
+function M.preprocess(raw, default_bg)
   local result = {}
-  for idx, slot in ipairs(raw_schedule) do
+  for idx, slot in ipairs(raw) do
     local ok, err = M.validate_entry(slot)
     if not ok then
-      vim.notify(
-        string.format("colorful-times: invalid schedule entry %d: %s", idx, err),
-        vim.log.levels.ERROR
-      )
+      vim.notify(string.format("colorful-times: invalid entry %d: %s", idx, err), vim.log.levels.ERROR)
     else
       table.insert(result, {
-        start_time  = M.parse_time(slot.start),
-        stop_time   = M.parse_time(slot.stop),
+        start_time = M.parse_time(slot.start),
+        stop_time = M.parse_time(slot.stop),
         colorscheme = slot.colorscheme,
-        background  = slot.background or default_background,
+        background = slot.background or default_bg,
       })
     end
   end
   return result
 end
 
+---Check if current time is within an entry's time range
+---@param entry ColorfulTimes.ParsedEntry
+---@param time_mins integer
+---@return boolean
+local function is_active(entry, time_mins)
+  local start_t, stop_t, current = entry.start_time, entry.stop_time, time_mins
+  
+  if stop_t <= start_t then
+    -- Overnight span (e.g., 22:00 -> 06:00)
+    if current < start_t then current = current + MINUTES_PER_DAY end
+    stop_t = stop_t + MINUTES_PER_DAY
+  end
+  
+  return current >= start_t and current < stop_t
+end
+
+---Get the currently active schedule entry from parsed entries
 ---@param parsed ColorfulTimes.ParsedEntry[]
 ---@param time_mins integer
 ---@return ColorfulTimes.ParsedEntry|nil
 function M.get_active_entry(parsed, time_mins)
-  for _, slot in ipairs(parsed) do
-    local start_t = slot.start_time
-    local stop_t  = slot.stop_time
-    local current = time_mins
-
-    if stop_t <= start_t then
-      -- overnight: e.g. 22:00 -> 06:00
-      if current < start_t then
-        current = current + MINUTES_PER_DAY
-      end
-      stop_t = stop_t + MINUTES_PER_DAY
-    end
-
-    if current >= start_t and current < stop_t then
-      return slot
+  for _, entry in ipairs(parsed) do
+    if is_active(entry, time_mins) then
+      return entry
     end
   end
   return nil
 end
 
+---Get the currently active schedule entry from raw entries (convenience)
+---@param raw table[]
+---@param time_mins integer
+---@param default_bg string
+---@return ColorfulTimes.ParsedEntry|nil
+function M.get_active(raw, time_mins, default_bg)
+  return M.get_active_entry(M.preprocess(raw, default_bg), time_mins)
+end
+
+---Calculate minutes until next schedule boundary
 ---@param parsed ColorfulTimes.ParsedEntry[]
 ---@param time_mins integer
 ---@return integer|nil
 function M.next_change_at(parsed, time_mins)
-  if #parsed == 0 then
-    return nil
-  end
-
-  -- Compute hash of parsed schedule for cache comparison
-  local parsed_hash = vim.inspect(parsed)
-
-  -- Check cache: same time and same parsed schedule
-  if _next_change_cache.time_mins == time_mins and _next_change_cache.parsed_hash == parsed_hash then
-    return _next_change_cache.result
-  end
-
-  local min_diff = nil
-
-  for i = 1, #parsed do
-    local slot = parsed[i]
-
-    -- Check start_time boundary
-    local diff_start = slot.start_time - time_mins
-    if diff_start <= 0 then
-      diff_start = diff_start + MINUTES_PER_DAY
-    end
-    if not min_diff or diff_start < min_diff then
-      min_diff = diff_start
-    end
-
-    -- Check stop_time boundary
-    local diff_stop = slot.stop_time - time_mins
-    if diff_stop <= 0 then
-      diff_stop = diff_stop + MINUTES_PER_DAY
-    end
-    if not min_diff or diff_stop < min_diff then
-      min_diff = diff_stop
+  if #parsed == 0 then return nil end
+  
+  local min_diff
+  for _, entry in ipairs(parsed) do
+    for _, boundary in ipairs({ entry.start_time, entry.stop_time }) do
+      local diff = boundary - time_mins
+      if diff <= 0 then diff = diff + MINUTES_PER_DAY end
+      min_diff = math.min(min_diff or diff, diff)
     end
   end
-
-  -- Store result in cache (single entry, replacement strategy)
-  _next_change_cache.time_mins = time_mins
-  _next_change_cache.parsed_hash = parsed_hash
-  _next_change_cache.result = min_diff
-
+  
   return min_diff
 end
 

@@ -1,99 +1,96 @@
 -- lua/colorful-times/system.lua
+-- Streamlined system background detection
+
 local M = {}
 local uv = vim.uv
-local bit = require("bit")
 
-local _sysname = nil
+local _sysname
 
 ---@return string
 function M.sysname()
-  if not _sysname then
-    _sysname = uv.os_uname().sysname or "Unknown"
-  end
+  _sysname = _sysname or uv.os_uname().sysname
   return _sysname
 end
 
----Spawn a process and call handle_result when done
----Drains stdout/stderr to prevent pipe blocking.
----@param cmd string The command to spawn
----@param args string[] Arguments for the command
----@param handle_result fun(code: integer) Callback with exit code
-local function spawn_check(cmd, args, handle_result)
+---Check if system detection is available on this platform
+---@return boolean
+function M.has_detection()
+  local cfg = require("colorful-times").config
+  local sysname = M.sysname()
+  return sysname == "Darwin" or sysname == "Linux" 
+    or type(cfg.system_background_detection) == "function"
+    or type(cfg.system_background_detection) == "table"
+end
+
+---Spawn process and capture exit code
+---@param cmd string
+---@param args string[]
+---@param callback fun(code: integer)
+local function spawn(cmd, args, callback)
   local stdout = uv.new_pipe(false)
   local stderr = uv.new_pipe(false)
+  
   local handle
-  handle = uv.spawn(cmd, { args = args, stdio = { nil, stdout, stderr } },
-    function(code)
-      stdout:read_stop(); stderr:read_stop()
-      stdout:close();     stderr:close()
-      handle:close()
-      handle_result(code)
-    end)
+  handle = uv.spawn(cmd, { args = args, stdio = { nil, stdout, stderr } }, function(code)
+    stdout:read_stop(); stderr:read_stop()
+    stdout:close(); stderr:close()
+    handle:close()
+    callback(code)
+  end)
+  
+  -- Drain pipes to prevent blocking
   stdout:read_start(function() end)
   stderr:read_start(function() end)
 end
 
----@param cb fun(bg: string) Callback with detected background ("light" or "dark")
----@param fallback string Fallback background if detection fails
+---@param cb fun(bg: "light" | "dark")
+---@param fallback "light" | "dark"
 function M.get_background(cb, fallback)
-  local config = require("colorful-times").config
+  local cfg = require("colorful-times").config
   local sysname = M.sysname()
-
-  -- User-supplied function (Linux)
-  if type(config.system_background_detection) == "function" then
-    local bg = config.system_background_detection()
-    vim.schedule(function() cb(bg) end)
+  
+  -- User-provided function
+  if type(cfg.system_background_detection) == "function" then
+    local bg = cfg.system_background_detection()
+    vim.schedule(function() cb(bg == "dark" and "dark" or "light") end)
     return
   end
-
-  -- User-supplied command table (Linux)
-  if type(config.system_background_detection) == "table" then
-    local cmd  = config.system_background_detection[1]
-    local args = vim.list_slice(config.system_background_detection, 2)
-    spawn_check(cmd, args, function(code)
+  
+  -- User-provided command
+  if type(cfg.system_background_detection) == "table" then
+    spawn(cfg.system_background_detection[1], vim.list_slice(cfg.system_background_detection, 2), function(code)
       vim.schedule(function() cb(code == 0 and "dark" or "light") end)
     end)
     return
   end
-
+  
+  -- macOS detection
   if sysname == "Darwin" then
-    spawn_check("defaults", { "read", "-g", "AppleInterfaceStyle" }, function(code)
+    spawn("defaults", { "read", "-g", "AppleInterfaceStyle" }, function(code)
       vim.schedule(function() cb(code == 0 and "dark" or "light") end)
     end)
-
-  elseif sysname == "Linux" then
-    local config = require("colorful-times").config
-    local script = config.system_background_detection_script
-
+    return
+  end
+  
+  -- Linux detection
+  if sysname == "Linux" then
+    local script = cfg.system_background_detection_script
     if script then
-      -- Validate script exists and is executable
       local stat = uv.fs_stat(script)
-      if not stat then
-        vim.notify("colorful-times: script not found: " .. script, vim.log.levels.ERROR)
+      if not stat or stat.type == "directory" or bit.band(stat.mode, tonumber("111", 8)) == 0 then
+        vim.notify("colorful-times: invalid detection script: " .. script, vim.log.levels.ERROR)
         vim.schedule(function() cb(fallback) end)
         return
       end
-      if stat.type == "directory" then
-        vim.notify("colorful-times: script path is a directory: " .. script, vim.log.levels.ERROR)
-        vim.schedule(function() cb(fallback) end)
-        return
-      end
-      if bit.band(stat.mode, tonumber("111", 8)) == 0 then
-        vim.notify("colorful-times: script not executable: " .. script, vim.log.levels.ERROR)
-        vim.schedule(function() cb(fallback) end)
-        return
-      end
-      -- Execute custom script: exit 0 = dark, exit 1 = light
-      spawn_check(script, {}, function(code)
+      spawn(script, {}, function(code)
         vim.schedule(function() cb(code == 0 and "dark" or "light") end)
       end)
     else
-      -- Auto-detect KDE or GNOME using default inline script
-      local default_script = [[
+      -- Auto-detect KDE/GNOME
+      spawn("sh", { "-c", [[
         if [ "$XDG_CURRENT_DESKTOP" = "KDE" ] || [ "$XDG_SESSION_DESKTOP" = "KDE" ]; then
           if command -v kreadconfig6 &>/dev/null; then
             kreadconfig6 --group General --key ColorScheme --file kdeglobals | grep -q Dark && exit 0
-            kreadconfig6 --group KDE --key LookAndFeelPackage | grep -qi dark && exit 0
           elif command -v kreadconfig5 &>/dev/null; then
             kreadconfig5 --group General --key ColorScheme --file kdeglobals | grep -q Dark && exit 0
           fi
@@ -101,18 +98,17 @@ function M.get_background(cb, fallback)
         elif [ "$XDG_CURRENT_DESKTOP" = "GNOME" ] || [ "$XDG_SESSION_DESKTOP" = "GNOME" ]; then
           gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | grep -q prefer-dark && exit 0
           exit 1
-        else
-          exit 1
         fi
-      ]]
-      spawn_check("sh", { "-c", default_script }, function(code)
+        exit 1
+      ]] }, function(code)
         vim.schedule(function() cb(code == 0 and "dark" or "light") end)
       end)
     end
-
-  else
-    vim.schedule(function() cb(fallback) end)
+    return
   end
+  
+  -- Unsupported platform
+  vim.schedule(function() cb(fallback) end)
 end
 
 return M

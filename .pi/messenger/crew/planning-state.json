@@ -2,9 +2,9 @@
   "active": false,
   "cwd": "/Users/luxus/projects/colorful-times-nvim",
   "runId": null,
-  "pass": 1,
-  "maxPasses": 1,
-  "phase": "completed",
-  "updatedAt": "2026-03-28T05:50:30.927Z",
-  "pid": 16732
+  "pass": 0,
+  "maxPasses": 0,
+  "phase": "idle",
+  "updatedAt": "2026-03-29T20:02:43.195Z",
+  "pid": null
 }
