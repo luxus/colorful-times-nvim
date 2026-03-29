@@ -39,6 +39,10 @@ local function get_cached_schemes()
   return _cached_schemes
 end
 
+-- ─── Debounced Save Timer ───────────────────────────────────────────────────
+local _save_timer = nil
+local DEBOUNCE_MS = 500  -- Delay saves by 500ms to batch rapid changes
+
 -- ─── Formatting ───────────────────────────────────────────────────────────────
 local function pad(str, width)
   str = tostring(str or "")
@@ -173,14 +177,27 @@ end
 
 -- ─── Actions ─────────────────────────────────────────────────────────────────
 local function save_and_reload()
-  if ct.config.persist then
+  -- Always reload immediately for responsive UI
+  require("colorful-times.core").reload()
+  render()
+  
+  -- Debounce state saves to reduce disk I/O during rapid changes
+  if not ct.config.persist then return end
+  
+  if _save_timer then
+    _save_timer:stop()
+    _save_timer:close()
+  end
+  
+  _save_timer = vim.uv.new_timer()
+  _save_timer:start(DEBOUNCE_MS, 0, function()
+    _save_timer:close()
+    _save_timer = nil
     require("colorful-times.state").save({
       enabled = ct.config.enabled,
       schedule = ct.config.schedule,
     })
-  end
-  require("colorful-times.core").reload()
-  render()
+  end)
 end
 
 local function action_add()
