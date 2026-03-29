@@ -17,6 +17,9 @@ local ERROR_MESSAGES = {
   EROFS = "Read-only filesystem",
 }
 
+-- Static lookup for valid backgrounds
+local VALID_BACKGROUNDS = { light = true, dark = true, system = true }
+
 ---Validate state data structure with detailed errors
 ---@param data table
 ---@return boolean ok
@@ -71,7 +74,7 @@ function M.validate_state(data)
       return false, "default must be a table"
     end
     if data.default.background ~= nil then
-      if not vim.tbl_contains({ "light", "dark", "system" }, data.default.background) then
+      if not VALID_BACKGROUNDS[data.default.background] then
         return false, "default.background must be one of: light, dark, system"
       end
     end
