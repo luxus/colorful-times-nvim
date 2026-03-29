@@ -10,6 +10,14 @@ local _time_cache = {}
 local _CACHE_LIMIT = 50
 local _CACHE_NIL = {}  -- Sentinel for cached nil values
 
+-- Static lookup for valid backgrounds
+local VALID_BACKGROUNDS = { light = true, dark = true, system = true }
+
+-- Cache for next_change_at to avoid recomputation
+local _next_change_cache_entry = nil
+local _next_change_cache_time = nil
+local _next_change_cache_result = nil
+
 ---Parse HH:MM time string to minutes since midnight
 ---@param str string
 ---@return integer|nil
@@ -66,7 +74,7 @@ function M.validate_entry(entry)
   if not M.parse_time(entry.stop or "") then
     return false, "invalid stop time: " .. tostring(entry.stop)
   end
-  if entry.background and not vim.tbl_contains({ "light", "dark", "system" }, entry.background) then
+  if entry.background and not VALID_BACKGROUNDS[entry.background] then
     return false, "invalid background: " .. entry.background
   end
   return true
@@ -139,6 +147,12 @@ end
 function M.next_change_at(parsed, time_mins)
   if #parsed == 0 then return nil end
   
+  -- Use cache if same parsed schedule and time_mins matches cached value
+  if _next_change_cache_entry == parsed and _next_change_cache_time == time_mins then
+    return _next_change_cache_result
+  end
+  
+  -- Compute all diffs for this schedule
   local min_diff
   for _, entry in ipairs(parsed) do
     for _, boundary in ipairs({ entry.start_time, entry.stop_time }) do
@@ -147,6 +161,11 @@ function M.next_change_at(parsed, time_mins)
       min_diff = math.min(min_diff or diff, diff)
     end
   end
+  
+  -- Simple single-entry cache with replacement strategy
+  _next_change_cache_entry = parsed
+  _next_change_cache_time = time_mins
+  _next_change_cache_result = min_diff
   
   return min_diff
 end
