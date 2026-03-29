@@ -1,1 +1,2 @@
 {"type":"config","name":"Colorful Times - Further optimization for performance and efficiency","metricName":"test_duration_ms","metricUnit":"ms","bestDirection":"lower"}
+{"run":1,"commit":"17c6401","metric":600,"metrics":{},"status":"keep","description":"Baseline - tests running at 0.6s","timestamp":1774815602152,"segment":0,"confidence":null,"iterationTokens":151,"asi":{"hypothesis":"Baseline measurement for all optimizations"}}

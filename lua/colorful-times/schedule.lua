@@ -5,48 +5,50 @@ local M = {}
 
 local MINUTES_PER_DAY = 1440
 
--- Simple LRU cache for parse_time (max 100 entries)
+-- Optimized LRU cache for parse_time (max 50 entries - time strings are limited)
 local _time_cache = {}
-local _time_cache_order = {}
-local _CACHE_LIMIT = 100
+local _CACHE_LIMIT = 50
 local _CACHE_NIL = {}  -- Sentinel for cached nil values
 
 ---Parse HH:MM time string to minutes since midnight
 ---@param str string
 ---@return integer|nil
 function M.parse_time(str)
-  -- Check cache using rawget to distinguish nil from not-cached
-  local cached = rawget(_time_cache, str)
+  -- Fast path: check cache first (handles both hits and nil-sentinel misses)
+  local cached = _time_cache[str]
   if cached ~= nil then
     if cached == _CACHE_NIL then return nil end
     return cached
   end
   
+  -- Parse the time string
   local hour, min = str:match("^(%d%d?):(%d%d)$")
   if not hour then
     _time_cache[str] = _CACHE_NIL
-    table.insert(_time_cache_order, str)
     return nil
   end
   
   hour, min = tonumber(hour), tonumber(min)
   if hour >= 24 or min >= 60 then
     _time_cache[str] = _CACHE_NIL
-    table.insert(_time_cache_order, str)
     return nil
   end
   
   local result = hour * 60 + min
   
-  -- Simple cache management: clear when limit reached
-  if #_time_cache_order >= _CACHE_LIMIT then
-    _time_cache = {}
-    _time_cache_order = {}
+  -- LRU eviction: only remove oldest when at limit (rare for time strings)
+  -- Time strings have max 1440 unique values (24h * 60m), but typically <10 used
+  local cache_size = 0
+  for _ in pairs(_time_cache) do cache_size = cache_size + 1 end
+  if cache_size >= _CACHE_LIMIT then
+    -- Find and remove first entry (oldest in insertion order)
+    for k in pairs(_time_cache) do
+      _time_cache[k] = nil
+      break
+    end
   end
   
   _time_cache[str] = result
-  table.insert(_time_cache_order, str)
-  
   return result
 end
 
