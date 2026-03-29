@@ -245,27 +245,27 @@ function M.setup(opts)
     _parsed_schedule = nil
   end
   
-  -- Register focus autocmds (lightweight, no I/O)
-  vim.api.nvim_create_autocmd("FocusLost", {
-    group = _augroup,
-    callback = function() _focused = false end,
-  })
-  vim.api.nvim_create_autocmd("FocusGained", {
-    group = _augroup,
-    callback = function()
-      _focused = true
-      if needs_system_poll() then
-        system.get_background(function(bg)
-          if bg ~= _previous_bg then M.apply_colorscheme() end
-        end, _previous_bg or "dark")
-      end
-    end,
-  })
-  
   if not M.config.enabled then return end
   
   -- Defer state loading and initialization to avoid blocking startup
   vim.defer_fn(function()
+    -- Register focus autocmds (only when enabled and active)
+    vim.api.nvim_create_autocmd("FocusLost", {
+      group = _augroup,
+      callback = function() _focused = false end,
+    })
+    vim.api.nvim_create_autocmd("FocusGained", {
+      group = _augroup,
+      callback = function()
+        _focused = true
+        if needs_system_poll() then
+          system.get_background(function(bg)
+            if bg ~= _previous_bg then M.apply_colorscheme() end
+          end, _previous_bg or "dark")
+        end
+      end,
+    })
+    
     -- Load persisted state (async file I/O)
     local stored = state.load()
     if type(stored) == "table" and next(stored) then
