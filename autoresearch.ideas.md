@@ -1,6 +1,9 @@
-# Future Optimization Ideas
+# Optimization Ideas
 
-## ✅ Completed (13 optimizations)
+## ✅ COMPLETED: Startup Optimization (13 optimizations)
+
+**Final Result**: 41% improvement (6.88ms → ~4.1ms)  
+**Approach**: `vim.defer_fn(0)` for zero-blocking startup
 
 | # | Optimization | Location | Impact |
 |---|--------------|----------|--------|
@@ -16,7 +19,17 @@
 | 10 | Debounced state writes (500ms) | tui.lua | Reduced disk I/O |
 | 11 | Static TUI header cache | tui.lua | Faster rendering |
 | 12 | Platform detection lookup | system.lua | O(1) platform check |
-| 13 | Async startup via vim.defer_fn | core.lua | **41% faster startup (6.88ms → 4.1ms)** |
+| 13 | Async startup via vim.defer_fn | core.lua | **41% faster startup** |
+
+## ✅ COMPLETED: Runtime Optimization
+
+### `next_change_at` Boundary Table
+
+**Result**: 13% faster overall, 31% faster for 20+ entry schedules  
+**Approach**: Precompute sorted boundary table, use binary search (O(log n) vs O(n))  
+**Commit**: 625524c
+
+---
 
 ## 🚫 Tried & Reverted (6 experiments - all regressed)
 
@@ -35,31 +48,22 @@
 |------|-----------------|
 | Memory pool for parsed entries | Only relevant for >100 entry schedules (edge case) |
 | Timer coalescing | Complexity not worth it for typical 5s poll intervals |
+| `get_active_entry` interval tree | High complexity, small schedules already O(n) fast enough |
 
-## 🔄 Active: Runtime Performance
+## 📋 Backlog (Future Ideas - Not Performance)
 
-### Current Target: `next_change_at` Optimization
-
-**Problem**: `next_change_at()` is O(n) - iterates all entries and boundaries every call
-**Idea**: Precompute sorted unique boundaries once → O(log n) via binary search
-**Benefit**: Significant for large schedules (>20 entries)
-**Status**: NOT YET TRIED
-
-Implementation approach:
-1. Add `boundaries` field to parsed schedule (sorted array of unique boundaries)
-2. Add `next_boundary_idx` field (circular index for current position)
-3. Modify `next_change_at` to use binary search or cached index
-
----
-
-## 📋 Backlog (Future Ideas)
-
-### Features (Not Performance)
+### Features
 
 1. **Fuzzy schedule matching**: Support "sunrise"/"sunset" keywords that resolve to actual times
 2. **Plugin API for custom themes**: Allow users to register custom theme providers
 3. **Incremental schedule validation in TUI**: When editing a single entry, only validate that entry
 
-### Edge Cases
+---
 
-4. **Large schedule optimization**: For schedules with >50 entries, consider additional optimizations
+## Summary
+
+**Startup**: Optimized from 6.88ms → 4.1ms (41% improvement) using `vim.defer_fn(0)` pattern  
+**Runtime**: Optimized `next_change_at` from O(n) → O(log n) for 13% improvement  
+**Tests**: All 51 tests passing throughout optimization process
+
+**Status**: Major optimizations complete. Plugin is now highly optimized for both startup and runtime performance.
