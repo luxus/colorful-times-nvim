@@ -1,2 +1,3 @@
 {"type":"config","name":"Colorful Times - Further optimization for performance and efficiency","metricName":"test_duration_ms","metricUnit":"ms","bestDirection":"lower"}
 {"run":1,"commit":"17c6401","metric":600,"metrics":{},"status":"keep","description":"Baseline - tests running at 0.6s","timestamp":1774815602152,"segment":0,"confidence":null,"iterationTokens":151,"asi":{"hypothesis":"Baseline measurement for all optimizations"}}
+{"run":2,"commit":"457e252","metric":600,"metrics":{},"status":"keep","description":"Optimized schedule cache with proper LRU eviction","timestamp":1774815641371,"segment":0,"confidence":null,"iterationTokens":316,"asi":{"hypothesis":"Replace naive cache clear with proper LRU eviction for better cache hit rates"}}

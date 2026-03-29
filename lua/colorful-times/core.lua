@@ -15,6 +15,7 @@ local _timers = {}      -- { schedule = uv_timer|nil, poll = uv_timer|nil }
 local _previous_bg
 local _focused = true
 local _augroup = vim.api.nvim_create_augroup("ColorfulTimes", { clear = true })
+local _parsed_schedule = nil  -- Cache for preprocessed schedule
 
 -- ─── Timer Utilities ───────────────────────────────────────────────────────────
 
@@ -47,7 +48,16 @@ end
 ---@return string background
 function M.resolve_theme()
   local cfg = M.config
-  local active = cfg.enabled and schedule.get_active(cfg.schedule, now_mins(), cfg.default.background)
+  if not cfg.enabled then
+    local bg = cfg.default.background
+    local cs = bg ~= "system" and cfg.default.themes[bg] or cfg.default.colorscheme
+    return cs or cfg.default.colorscheme, bg
+  end
+  
+  -- Use cached parsed schedule for better performance
+  local current_mins = now_mins()
+  _parsed_schedule = _parsed_schedule or schedule.preprocess(cfg.schedule, cfg.default.background)
+  local active = schedule.get_active_entry(_parsed_schedule, current_mins)
   
   if active then
     return active.colorscheme, active.background
@@ -95,9 +105,13 @@ end
 ---Check if system polling is needed based on current schedule
 ---@return boolean
 local function needs_system_poll()
-  local active = M.config.enabled and schedule.get_active(
-    M.config.schedule, now_mins(), M.config.default.background
-  )
+  if not M.config.enabled then
+    return M.config.default.background == "system"
+  end
+  
+  local current_mins = now_mins()
+  _parsed_schedule = _parsed_schedule or schedule.preprocess(M.config.schedule, M.config.default.background)
+  local active = schedule.get_active_entry(_parsed_schedule, current_mins)
   return (active and active.background or M.config.default.background) == "system"
 end
 
@@ -156,6 +170,7 @@ end
 function M.reload()
   stop_all_timers()
   _previous_bg = nil
+  _parsed_schedule = nil  -- Clear schedule cache
   M.apply_colorscheme()
   arm_schedule_timer()
   start_poll_timer()
@@ -223,6 +238,9 @@ function M.setup(opts)
     for k, v in pairs(safe) do
       M.config[k] = v
     end
+    
+    -- Clear schedule cache when config changes
+    _parsed_schedule = nil
   end
   
   -- Register focus autocmds
