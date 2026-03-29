@@ -80,25 +80,44 @@ function M.validate_entry(entry)
   return true
 end
 
----Preprocess raw schedule into parsed entries
+---Preprocess raw schedule into parsed entries with optimized boundary table
 ---@param raw table[]
 ---@param default_bg string
 ---@return ColorfulTimes.ParsedEntry[]
 function M.preprocess(raw, default_bg)
   local result = {}
+  local boundaries_set = {}  -- For deduplication
+  
   for idx, slot in ipairs(raw) do
     local ok, err = M.validate_entry(slot)
     if not ok then
       vim.notify(string.format("colorful-times: invalid entry %d: %s", idx, err), vim.log.levels.ERROR)
     else
+      local start_time = M.parse_time(slot.start)
+      local stop_time = M.parse_time(slot.stop)
       table.insert(result, {
-        start_time = M.parse_time(slot.start),
-        stop_time = M.parse_time(slot.stop),
+        start_time = start_time,
+        stop_time = stop_time,
         colorscheme = slot.colorscheme,
         background = slot.background or default_bg,
       })
+      -- Collect unique boundaries
+      boundaries_set[start_time] = true
+      boundaries_set[stop_time] = true
     end
   end
+  
+  -- Build sorted boundary table for O(log n) lookup
+  if #result > 0 then
+    local boundaries = {}
+    for t in pairs(boundaries_set) do
+      table.insert(boundaries, t)
+    end
+    table.sort(boundaries)
+    -- Store on result table (non-numeric key won't affect ipairs)
+    result._boundaries = boundaries
+  end
+  
   return result
 end
 
@@ -141,6 +160,7 @@ function M.get_active(raw, time_mins, default_bg)
 end
 
 ---Calculate minutes until next schedule boundary
+---Uses binary search on precomputed boundary table for O(log n) performance
 ---@param parsed ColorfulTimes.ParsedEntry[]
 ---@param time_mins integer
 ---@return integer|nil
@@ -152,14 +172,37 @@ function M.next_change_at(parsed, time_mins)
     return _next_change_cache_result
   end
   
-  -- Compute all diffs for this schedule
-  local min_diff
-  for _, entry in ipairs(parsed) do
-    for _, boundary in ipairs({ entry.start_time, entry.stop_time }) do
-      local diff = boundary - time_mins
-      if diff <= 0 then diff = diff + MINUTES_PER_DAY end
-      min_diff = math.min(min_diff or diff, diff)
+  local boundaries = parsed._boundaries
+  if not boundaries then
+    -- Fallback to O(n) method if boundaries not precomputed (shouldn't happen)
+    local min_diff
+    for _, entry in ipairs(parsed) do
+      for _, boundary in ipairs({ entry.start_time, entry.stop_time }) do
+        local diff = boundary - time_mins
+        if diff <= 0 then diff = diff + MINUTES_PER_DAY end
+        min_diff = math.min(min_diff or diff, diff)
+      end
     end
+    return min_diff
+  end
+  
+  -- Binary search to find first boundary > time_mins
+  local lo, hi = 1, #boundaries
+  while lo <= hi do
+    local mid = math.floor((lo + hi) / 2)
+    if boundaries[mid] <= time_mins then
+      lo = mid + 1
+    else
+      hi = mid - 1
+    end
+  end
+  
+  local min_diff
+  if lo <= #boundaries then
+    min_diff = boundaries[lo] - time_mins
+  else
+    -- Wrap around to first boundary of next day
+    min_diff = (boundaries[1] + MINUTES_PER_DAY) - time_mins
   end
   
   -- Simple single-entry cache with replacement strategy
