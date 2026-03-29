@@ -120,7 +120,9 @@ local function arm_schedule_timer()
   stop_timer(_timers.schedule)
   if not M.config.enabled then return end
   
-  local diff = schedule.next_change_at(M.config.schedule, now_mins())
+  -- Use cached parsed schedule for efficiency
+  _parsed_schedule = _parsed_schedule or schedule.preprocess(M.config.schedule, M.config.default.background)
+  local diff = schedule.next_change_at(_parsed_schedule, now_mins())
   if not diff then return end
   
   _timers.schedule = uv.new_timer()
