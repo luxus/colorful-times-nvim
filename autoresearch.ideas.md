@@ -35,13 +35,14 @@
 
 All regressed 4-27%. See autoresearch.md for details. Do not retry.
 
-## 🚫 Not Pursued (Insufficient benefit for typical use)
+## 🚫 Not Pursued (Insufficient benefit for typical use - DO NOT RETRY)
 
 | Idea | Why Not Pursued |
 |------|-----------------|
 | Memory pool for parsed entries | Only relevant for >100 entry schedules (edge case) |
 | Timer coalescing | Complexity not worth it for typical 5s poll intervals |
 | `get_active_entry` interval tree | High complexity, small schedules already O(n) fast enough |
+| Cache size counter | Tried - no benefit, adds complexity |
 
 ## 📋 Backlog (Future Ideas - Not Performance)
 
