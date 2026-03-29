@@ -49,6 +49,24 @@ local function pad(str, width)
   return #str >= width and str:sub(1, width - 1) .. " " or str .. string.rep(" ", width - #str)
 end
 
+-- ─── Static Header Cache ─────────────────────────────────────────────────────
+local _static_header = nil
+local function get_static_header(enabled)
+  local cache_key = enabled and "enabled" or "disabled"
+  if not _static_header or _static_header.key ~= cache_key then
+    _static_header = {
+      key = cache_key,
+      lines = {
+        enabled and "  [●] ENABLED  " .. VERSION or "  [○] DISABLED " .. VERSION,
+        SEP,
+        string.format("  %s%s%s%s", pad("START", COLS[1]), pad("STOP", COLS[2]), pad("COLORSCHEME", COLS[3]), pad("BG", COLS[4])),
+        SEP,
+      }
+    }
+  end
+  return _static_header.lines
+end
+
 -- ─── Rendering ───────────────────────────────────────────────────────────────
 local function render()
   if not (_buf and api.nvim_buf_is_valid(_buf)) then return end
@@ -56,12 +74,8 @@ local function render()
   vim.bo[_buf].modifiable = true
   api.nvim_buf_clear_namespace(_buf, NS, 0, -1)
   
-  local lines = vim.iter({
-    ct.config.enabled and "  [●] ENABLED  " .. VERSION or "  [○] DISABLED " .. VERSION,
-    SEP,
-    string.format("  %s%s%s%s", pad("START", COLS[1]), pad("STOP", COLS[2]), pad("COLORSCHEME", COLS[3]), pad("BG", COLS[4])),
-    SEP,
-  }):totable()
+  -- Start with cached static header
+  local lines = { unpack(get_static_header(ct.config.enabled)) }
   
   local schedule = ct.config.schedule
   if #schedule == 0 then
@@ -74,9 +88,9 @@ local function render()
     end
   end
   
-  vim.iter({ SEP, "  [a]dd [e]dit [d]el [t]oggle [r]eload [?]help [q]uit" }):each(function(l)
-    table.insert(lines, l)
-  end)
+  -- Footer (static, but keep inline for clarity)
+  table.insert(lines, SEP)
+  table.insert(lines, "  [a]dd [e]dit [d]el [t]oggle [r]eload [?]help [q]uit")
   
   api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
   vim.bo[_buf].modifiable = false
