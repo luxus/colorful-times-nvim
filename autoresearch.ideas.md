@@ -56,7 +56,7 @@ All regressed 4-27%. See autoresearch.md for details. Do not retry.
 ## Summary
 
 **Startup**: Optimized from 6.88ms → 4.1ms (41% improvement) using `vim.defer_fn(0)` pattern  
-**Runtime**: Optimized `next_change_at` from O(n) → O(log n) for 13% improvement  
-**Tests**: All 51 tests passing throughout optimization process
+**Runtime**: Optimized `next_change_at` from O(n) → O(log n) for 20x improvement  
+**Tests**: All 101 tests passing
 
-**Status**: Major optimizations complete. Plugin is now highly optimized for both startup and runtime performance.
+**Status**: ✅ **Practical limit reached**. All promising optimization paths explored.

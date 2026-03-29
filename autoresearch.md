@@ -35,9 +35,22 @@ Cannot optimize further without:
 | `vim.validate()` with `pcall` | +4% slower | pcall overhead cancels benefit |
 | Function-level lazy loading | +24% slower | Schedule still needed for validation |
 
+## Comprehensive Audit Results
+
+| Operation | Time | Assessment |
+|-----------|------|------------|
+| Startup | 4.17ms | ✅ Practical limit reached |
+| parse_time (cached) | 0.09µs | ✅ Negligible |
+| next_change_at | 23.7µs | ✅ 20x faster than baseline |
+| preprocess (20 entries) | 79.6µs | ✅ Acceptable |
+| get_active_entry | 194.9µs | ✅ O(n), typical schedules <20 |
+
 ## Conclusion
 
-**4.1ms is the practical limit** for this architecture with current features. The plugin now has:
-- Zero-blocking startup (all I/O deferred)
-- 41% faster time-to-ready
-- All tests passing
+**4.1ms is the practical limit** for this architecture with current features. All promising optimization paths explored:
+- ✅ Startup: Zero-blocking I/O via `vim.defer_fn(0)`
+- ✅ Runtime: O(log n) boundary table for next_change_at
+- ✅ Caching: Multiple levels (time, schedule, colorschemes)
+- ✅ Tests: 101 passing, 0 failures
+
+**No further optimizations viable** without removing features or accepting significant complexity for marginal gains.
