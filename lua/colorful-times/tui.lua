@@ -19,8 +19,12 @@ local HEADER_LINES = 4
 local SEP = string.rep("─", vim.iter(COLS):fold(9, function(a, b) return a + b end))
 
 -- ─── Snacks Detection ───────────────────────────────────────────────────────
+local _has_snacks = nil
 local function has_snacks()
-  return pcall(require, "snacks")
+  if _has_snacks == nil then
+    _has_snacks = pcall(require, "snacks")
+  end
+  return _has_snacks
 end
 
 -- ─── Formatting ───────────────────────────────────────────────────────────────
