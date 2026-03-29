@@ -12,12 +12,15 @@ function M.sysname()
   return _sysname
 end
 
+-- Static set of supported platforms
+local SUPPORTED_SYSNAMES = { Darwin = true, Linux = true }
+
 ---Check if system detection is available on this platform
 ---@return boolean
 function M.has_detection()
   local cfg = require("colorful-times").config
   local sysname = M.sysname()
-  return sysname == "Darwin" or sysname == "Linux" 
+  return SUPPORTED_SYSNAMES[sysname]
     or type(cfg.system_background_detection) == "function"
     or type(cfg.system_background_detection) == "table"
 end
