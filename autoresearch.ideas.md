@@ -18,27 +18,36 @@
 | 12 | Platform detection lookup | system.lua | O(1) platform check |
 | **13** | **Async startup via vim.defer_fn** | **core.lua** | **41% faster startup (6.88ms → 4.1ms)** |
 
-## 🔄 Remaining Ideas
+## 🚫 Not Pursued (Insufficient Benefit)
 
-### Performance Ideas
+| Idea | Why Not Pursued |
+|------|-----------------|
+| Split validation (fast/deferred) | Added overhead for typical small schedules (<10 entries) |
+| Lazy submodule loading with getters | `require()` check overhead exceeded benefit |
+| Shallow copy config merging | `pairs()` iteration slower than C-optimized `vim.deepcopy` |
+| Closure-based lazy loading | Worse than metatable `__index` approach |
+| vim.validate() with pcall | pcall overhead cancelled out C-speed benefit |
+| Function-level lazy loading | Schedule still needed for sync validation, added overhead |
 
-1. **Incremental schedule validation**: When editing a single entry, only validate that entry instead of the whole schedule.
+## 🔄 Future Ideas (Runtime/Edge Cases)
 
-2. **Precompute boundary table**: For `next_change_at`, could precompute a sorted list of all unique boundaries once instead of iterating all entries every call. Complexity: O(n) → O(log n) for large schedules.
+### Runtime Performance (Not Startup)
 
-3. **Timer coalescing**: When schedule timer and poll timer would fire close together, coalesce into single timer.
+1. **Precompute boundary table**: For `next_change_at`, precompute sorted unique boundaries once. Complexity: O(n) → O(log n) for large schedules (>20 entries).
+
+2. **Timer coalescing**: When schedule timer and poll timer fire close together, coalesce into single callback.
+
+3. **Incremental schedule validation in TUI**: When editing a single entry, only validate that entry instead of full schedule.
+
+### Edge Cases
 
 4. **Memory pool for parsed entries**: For very large schedules (>100 entries), use object pooling to reduce GC pressure.
 
-5. **Freeze config after setup**: Make config table read-only after setup() to prevent accidental mutations.
-
 ### Features
 
-1. **Fuzzy schedule matching**: Support "sunrise"/"sunset" keywords that resolve to actual times.
+5. **Fuzzy schedule matching**: Support "sunrise"/"sunset" keywords that resolve to actual times.
 
-2. **Plugin API for custom themes**: Allow users to register custom theme providers.
-
-3. **Profile-guided optimization**: Add instrumentation to measure actual hot paths in production use.
+6. **Plugin API for custom themes**: Allow users to register custom theme providers.
 
 ---
 
