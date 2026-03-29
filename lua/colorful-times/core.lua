@@ -37,8 +37,12 @@ end
 ---Get current time in minutes since midnight
 ---@return integer
 local function now_mins()
-  local d = os.date("*t")
-  return d.hour * 60 + d.min
+  -- Use vim.uv.now() for faster time access (milliseconds since epoch)
+  -- This avoids the overhead of os.date() table construction
+  local now_ms = uv.now()
+  local days_since_epoch = math.floor(now_ms / 86400000)
+  local ms_today = now_ms - (days_since_epoch * 86400000)
+  return math.floor(ms_today / 60000)
 end
 
 -- ─── Theme Resolution ────────────────────────────────────────────────────────
