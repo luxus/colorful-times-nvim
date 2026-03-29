@@ -8,6 +8,7 @@ A Neovim plugin that automatically changes colorschemes based on a schedule, sys
 - **Test Framework**: plenary.nvim + busted
 - **Neovim Requirement**: >= 0.12.0
 - **Module Structure**: `lua/colorful-times/` with core, state, schedule, system, tui, health modules
+- **Performance Focus**: Zero startup impact, async operations, intelligent caching
 
 ---
 
@@ -75,16 +76,91 @@ tests/
 ├── state_spec.lua
 ├── schedule_spec.lua
 └── system_spec.lua
+
+doc/
+└── colorful-times.txt  -- Vim help documentation
 ```
 
 ---
 
-## Performance
+## Performance Optimizations
 
-- Lazy-load expensive modules (core, tui)
-- Cache system detection results (`_sysname` in `system.lua`)
-- Use `vim.uv` for async; avoid blocking on hot paths
-- Always drain stdout/stderr pipes when spawning subprocesses (see `system.lua`)
+The codebase has been heavily optimized for performance:
+
+### Caching Strategies
+
+1. **Schedule Preprocessing** (`core.lua`): Cached parsed schedule to avoid re-parsing on every theme check
+2. **Time Parsing** (`schedule.lua`): LRU cache for HH:MM → minutes conversion (max 50 entries)
+3. **Next Change Calculation** (`schedule.lua`): Single-entry cache for `next_change_at` results
+4. **Snacks Detection** (`tui.lua`): Cached result of `pcall(require, "snacks")`
+5. **Platform Detection** (`system.lua`): Cached `uv.os_uname().sysname` result
+
+### Lookup Optimizations
+
+- Replaced `vim.tbl_contains()` with static lookup tables (O(1) vs O(n))
+- Lazy loading uses O(1) key table instead of `vim.tbl_contains()`
+- Background validation uses `VALID_BACKGROUNDS[bg]` lookup
+
+### Async Patterns
+
+- All file I/O via `vim.uv` (non-blocking)
+- System detection uses `uv.spawn()` with proper pipe draining
+- Timer management with proper cleanup (`is_closing()` checks)
+
+---
+
+## Key Implementation Details
+
+### Timer Management (`core.lua`)
+
+Two timer types:
+- `_timers.schedule`: Fires at next schedule boundary (one-shot, rescheduled after firing)
+- `_timers.poll`: Recurring timer for system background detection (only when needed)
+
+Both use proper cleanup:
+```lua
+local function stop_timer(t)
+  if t and not t:is_closing() then
+    t:stop()
+    t:close()
+  end
+end
+```
+
+### Schedule Matching (`schedule.lua`)
+
+- Overnight spans handled by adding `MINUTES_PER_DAY` (1440) when `stop <= start`
+- Boundaries are inclusive start, exclusive stop
+- Uses `vim.iter` for modern iteration patterns
+
+### State Persistence (`state.lua`)
+
+- Atomic rename for backup (fallback to copy+delete)
+- JSON encoding/decoding with validation
+- Graceful handling of corrupted state files
+- Path: `vim.fn.stdpath("data") .. "/colorful-times/state.json"`
+
+### System Detection (`system.lua`)
+
+Priority order:
+1. User-provided function (`cfg.system_background_detection`)
+2. User-provided command table
+3. macOS: `defaults read -g AppleInterfaceStyle`
+4. Linux KDE: `kreadconfig6` or `kreadconfig5`
+5. Linux GNOME: `gsettings get org.gnome.desktop.interface color-scheme`
+6. Custom script (`cfg.system_background_detection_script`)
+
+All detection is async via `uv.spawn()`.
+
+---
+
+## Testing Guidelines
+
+- Each module has corresponding `*_spec.lua` file
+- Tests reload modules with `package.loaded["..."] = nil` for isolation
+- Cache behavior tested explicitly (hit/miss/invalidation)
+- Use `after()` cleanup hooks for test isolation
+- Mock `os.getenv` and `uv.spawn` for system detection tests
 
 ---
 
@@ -92,3 +168,23 @@ tests/
 
 - Update `doc/colorful-times.txt` when adding/changing commands
 - Add EmmyLua annotations to all new public API functions
+- Keep README.md in sync with actual features
+- Update this AGENTS.md when architectural patterns change
+
+---
+
+## Common Pitfalls
+
+1. **Timer leaks**: Always check `t:is_closing()` before `t:close()`
+2. **Cache invalidation**: Clear `_parsed_schedule` when config changes
+3. **Async callbacks**: Wrap Vim API calls in `vim.schedule()` when called from uv callbacks
+4. **State validation**: Validate before save, not just after load
+5. **Pipe draining**: Always drain stdout/stderr in `uv.spawn()` callbacks to prevent blocking
+
+---
+
+## External Dependencies
+
+- **Required**: Neovim >= 0.12.0 (for `vim.uv`)
+- **Optional**: snacks.nvim (for fuzzy colorscheme picker in TUI)
+- **Test**: plenary.nvim (busted-compatible test runner)
