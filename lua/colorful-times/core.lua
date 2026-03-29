@@ -17,6 +17,9 @@ local _focused = true
 local _augroup = vim.api.nvim_create_augroup("ColorfulTimes", { clear = true })
 local _parsed_schedule = nil  -- Cache for preprocessed schedule
 
+-- Static validation lookup tables
+local VALID_BACKGROUNDS = { light = true, dark = true, system = true }
+
 -- ─── Timer Utilities ───────────────────────────────────────────────────────────
 
 ---Stop and close a timer safely
@@ -210,8 +213,7 @@ local function validate(opts)
   end
   
   if opts.default and opts.default.background then
-    local valid = { light = true, dark = true, system = true }
-    if not valid[opts.default.background] then
+    if not VALID_BACKGROUNDS[opts.default.background] then
       return false, "background must be 'light', 'dark', or 'system'"
     end
   end
