@@ -46,6 +46,11 @@ local function spawn(cmd, args, callback)
   stderr:read_start(function() end)
 end
 
+local _last_bg
+local _last_check_time = 0
+local _pending_cb = nil
+local _debounce_timer = nil
+
 ---@param cb fun(bg: "light" | "dark")
 ---@param fallback "light" | "dark"
 function M.get_background(cb, fallback)
@@ -67,10 +72,54 @@ function M.get_background(cb, fallback)
     return
   end
   
-  -- macOS detection
+  -- macOS detection with debouncing to handle stale defaults cache
   if sysname == "Darwin" then
+    local now = uv.now()
+    
+    -- If we checked very recently (within 100ms), return cached result
+    if now - _last_check_time < 100 and _last_bg then
+      vim.schedule(function() cb(_last_bg) end)
+      return
+    end
+    
+    -- Cancel any pending debounce
+    if _debounce_timer and not _debounce_timer:is_closing() then
+      _debounce_timer:stop()
+      _debounce_timer:close()
+    end
+    
+    _pending_cb = cb
+    _last_check_time = now
+    
     spawn("defaults", { "read", "-g", "AppleInterfaceStyle" }, function(code)
-      vim.schedule(function() cb(code == 0 and "dark" or "light") end)
+      local detected = code == 0 and "dark" or "light"
+      
+      -- If result changed from last known value, verify after a short delay
+      -- to handle macOS defaults cache inconsistency
+      if _last_bg and detected ~= _last_bg then
+        _debounce_timer = uv.new_timer()
+        _debounce_timer:start(100, 0, function()
+          _debounce_timer:close()
+          spawn("defaults", { "read", "-g", "AppleInterfaceStyle" }, function(code2)
+            local verified = code2 == 0 and "dark" or "light"
+            _last_bg = verified
+            vim.schedule(function()
+              if _pending_cb then
+                _pending_cb(verified)
+                _pending_cb = nil
+              end
+            end)
+          end)
+        end)
+      else
+        _last_bg = detected
+        vim.schedule(function()
+          if _pending_cb then
+            _pending_cb(detected)
+            _pending_cb = nil
+          end
+        end)
+      end
     end)
     return
   end
