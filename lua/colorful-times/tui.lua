@@ -27,6 +27,18 @@ local function has_snacks()
   return _has_snacks
 end
 
+-- ─── Colorscheme List Cache ──────────────────────────────────────────────────
+local _cached_schemes = nil
+local function get_cached_schemes()
+  if not _cached_schemes then
+    _cached_schemes = vim.iter(vim.fn.getcompletion("", "color"))
+      :filter(function(s) return s ~= "" end)
+      :take(MAX_COLORSCHEMES)
+      :totable()
+  end
+  return _cached_schemes
+end
+
 -- ─── Formatting ───────────────────────────────────────────────────────────────
 local function pad(str, width)
   str = tostring(str or "")
@@ -100,10 +112,7 @@ end
 ---@param cb fun(name: string|nil)
 local function pick_colorscheme(default, cb)
   local original_cs, original_bg = vim.g.colors_name, vim.o.background
-  local schemes = vim.iter(vim.fn.getcompletion("", "color"))
-    :filter(function(s) return s ~= "" end)
-    :take(MAX_COLORSCHEMES)
-    :totable()
+  local schemes = get_cached_schemes()
   
   local function revert()
     pcall(vim.cmd.colorscheme, original_cs)
