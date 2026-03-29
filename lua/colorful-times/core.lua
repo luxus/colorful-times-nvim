@@ -223,13 +223,7 @@ end
 
 ---@param opts ColorfulTimes.Config?
 function M.setup(opts)
-  -- Load persisted state first (base layer)
-  local stored = state.load()
-  if type(stored) == "table" and next(stored) then
-    M.config = state.merge(M.config, stored)
-  end
-  
-  -- Merge user opts on top (user wins)
+  -- Validate user opts immediately (fast, no I/O)
   if opts then
     local ok, err = validate(opts)
     if not ok then
@@ -251,7 +245,7 @@ function M.setup(opts)
     _parsed_schedule = nil
   end
   
-  -- Register focus autocmds
+  -- Register focus autocmds (lightweight, no I/O)
   vim.api.nvim_create_autocmd("FocusLost", {
     group = _augroup,
     callback = function() _focused = false end,
@@ -268,7 +262,22 @@ function M.setup(opts)
     end,
   })
   
-  if M.config.enabled then M.enable() end
+  if not M.config.enabled then return end
+  
+  -- Defer state loading and initialization to avoid blocking startup
+  vim.defer_fn(function()
+    -- Load persisted state (async file I/O)
+    local stored = state.load()
+    if type(stored) == "table" and next(stored) then
+      M.config = state.merge(M.config, stored)
+      _parsed_schedule = nil  -- Clear cache after merge
+    end
+    
+    -- Now do the actual initialization work
+    M.apply_colorscheme()
+    arm_schedule_timer()
+    start_poll_timer()
+  end, 0)
 end
 
 -- TUI entry point
