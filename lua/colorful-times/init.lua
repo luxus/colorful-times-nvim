@@ -47,8 +47,10 @@ M.config = {
   persist = true,
 }
 
--- Lazy-load core on first access
+-- Lazy-load core on first access - use static lookup for O(1) check
 local _loaded = false
+local _lazy_keys = { setup = true, toggle = true, reload = true, open = true, apply_colorscheme = true }
+
 local function ensure_loaded()
   if not _loaded then
     _loaded = true
@@ -58,7 +60,7 @@ end
 
 setmetatable(M, {
   __index = function(t, key)
-    if vim.tbl_contains({ "setup", "toggle", "reload", "open", "apply_colorscheme" }, key) then
+    if _lazy_keys[key] then
       ensure_loaded()
       return t[key]
     end
