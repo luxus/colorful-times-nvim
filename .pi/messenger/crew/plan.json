@@ -1,8 +1,0 @@
-{
-  "prd": "(prompt)",
-  "prompt": "Add \"turbocase\" feature to colorful-times - a rapid colorscheme preview/demo mode that:\n\n1. Adds `:ColorfulTimesTurboCase` command that rapidly cycles through available colorschemes\n2. Configurable cycle speed (default 500ms, customizable via turbocase_speed config)\n3. Visual overlay showing current colorscheme name and index (e.g., \"1/50: gruvbox\")\n4. Keybindings during turbo mode:\n   - Space/p - pause/resume\n   - n - next\n   - p - previous  \n   - q/ESC - quit and restore original colorscheme\n   - Enter - accept current colorscheme and exit\n5. Works with both built-in and user-installed colorschemes\n6. Optional filter: only cycle through light/dark/all themes\n7. Integration with TUI: add \"Turbo Preview\" button to the schedule manager\n\nImplementation should:\n- Use vim.uv timer for non-blocking cycling\n- Save/restore original colorscheme on exit\n- Handle errors gracefully (skip colorschemes that fail to load)\n- Add to existing tui.lua or create new turbocase.lua module (lazy-loaded)\n- Add tests for the feature\n- Update documentation in doc/colorful-times.txt\n\nFollow existing code patterns in the codebase.",
-  "created_at": "2026-03-28T12:32:46.638Z",
-  "updated_at": "2026-03-28T12:32:46.638Z",
-  "task_count": 0,
-  "completed_count": 0
-}
