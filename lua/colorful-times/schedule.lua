@@ -74,6 +74,9 @@ function M.validate_entry(entry)
   if not M.parse_time(entry.stop or "") then
     return false, "invalid stop time: " .. tostring(entry.stop)
   end
+  if M.parse_time(entry.start) == M.parse_time(entry.stop) then
+    return false, "start and stop times must differ: " .. tostring(entry.start)
+  end
   if entry.background and not VALID_BACKGROUNDS[entry.background] then
     return false, "invalid background: " .. entry.background
   end
