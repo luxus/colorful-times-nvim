@@ -1,53 +1,41 @@
-# 🎨 Colorful Times
+# Colorful Times
 
-A fast, lightweight Neovim plugin that automatically changes your colorscheme based on time-of-day schedules or system appearance (light/dark mode).
+A fast, lightweight Neovim plugin that automatically changes your colorscheme based on time of day schedules or system appearance.
 
 [![Neovim](https://img.shields.io/badge/Neovim-0.12%2B-green.svg?style=flat-square)](https://neovim.io/)
 [![Lua](https://img.shields.io/badge/Made%20with%20Lua-blue.svg?style=flat-square&logo=lua)](https://lua.org)
+[![CI](https://github.com/luxus/colorful-times-nvim/actions/workflows/ci.yml/badge.svg)](https://github.com/luxus/colorful-times-nvim/actions/workflows/ci.yml)
 
-## ✨ Features
+## Features
 
-- ⏰ **Time-based schedules** — Define colorschemes for different times of day
-- 🌓 **System appearance sync** — Automatically follow your OS light/dark mode
-- ⚡ **Zero startup impact** — Fully asynchronous with `vim.uv`
-- 🖥️ **Interactive TUI** — Keyboard-driven schedule manager (`:ColorfulTimes`)
-- 💾 **State persistence** — Changes saved automatically
-- 🔧 **Highly configurable** — Custom detection scripts, function overrides
+* Time-based schedules for automatic theme changes throughout the day.
+* System appearance sync that follows your OS light or dark mode.
+* Interactive TUI schedule manager you can drive with your keyboard.
+* State persistence saves your changes automatically.
+* Zero startup impact using fully asynchronous background detection.
 
-## 📦 Installation
+## Installation
 
 Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
-  "your-username/colorful-times.nvim",
-  lazy = false,  -- Or use lazy loading with your preferred event
+  "luxus/colorful-times-nvim",
+  lazy = false,
+  priority = 1000, -- Colorscheme plugins must load first
   opts = {
-    -- your configuration
+    -- See configuration section below
   },
 }
 ```
 
-Using [packer.nvim](https://github.com/wbthomason/packer.nvim):
-
-```lua
-use {
-  "your-username/colorful-times.nvim",
-  config = function()
-    require("colorful-times").setup({
-      -- your configuration
-    })
-  end
-}
-```
-
-## 🚀 Quick Start
+## Quick Start
 
 ```lua
 require("colorful-times").setup({
   default = {
     colorscheme = "default",
-    background = "system",  -- "light", "dark", or "system"
+    background = "system", -- "light", "dark", or "system"
   },
   schedule = {
     { start = "08:00", stop = "18:00", colorscheme = "tokyonight-day", background = "light" },
@@ -56,150 +44,116 @@ require("colorful-times").setup({
 })
 ```
 
-## ⚙️ Configuration
+## Configuration
 
-### Default Options
+Here are the default options.
 
 ```lua
 {
-  enabled = true,                    -- Enable the plugin
-  refresh_time = 5000,              -- Milliseconds between system polls
-  persist = true,                    -- Save TUI changes to disk
-
-  default = {
-    colorscheme = "default",
-    background = "system",          -- "light", "dark", or "system"
-    themes = {
-      light = nil,                  -- Colorscheme when background is "light"
-      dark = nil,                   -- Colorscheme when background is "dark"
-    },
-  },
-
-  schedule = {},                    -- Time-based schedule entries
-
-  -- Linux only: custom detection (auto-detected for KDE/GNOME)
+  enabled = true,
+  refresh_time = 5000, -- Milliseconds between system appearance polls
   system_background_detection = nil,
   system_background_detection_script = nil,
-}
-```
-
-### Schedule Format
-
-Each schedule entry defines a time range and the theme to use:
-
-```lua
-schedule = {
-  {
-    start = "08:00",           -- Start time (HH:MM, 24-hour)
-    stop = "18:00",            -- Stop time (exclusive)
-    colorscheme = "gruvbox",     -- Colorscheme name
-    background = "light",      -- "light", "dark", or "system"
+  default = {
+    colorscheme = "default",
+    background = "system",
+    themes = { light = nil, dark = nil },
   },
-  -- Overnight spans work too!
-  { start = "22:00", stop = "06:00", colorscheme = "catppuccin-mocha", background = "dark" },
+  schedule = {},
+  persist = true, -- Set to false to disable state persistence
 }
 ```
 
-### System Background Detection
+The `snacks.nvim` plugin is optional. If installed, Colorful Times uses it to provide a fuzzy colorscheme picker with live preview in the TUI.
 
-**macOS**: Works automatically via `defaults read`.
-
-**Linux KDE/GNOME**: Auto-detected via `kreadconfig5/6` or `gsettings`.
-
-**Custom script** (Linux):
-```lua
-system_background_detection_script = "/path/to/detect-theme.sh"
--- Script should exit 0 for dark, 1 for light
-```
-
-**Custom function**:
-```lua
-system_background_detection = function()
-  -- Return "dark" or "light"
-  return os.execute("some-command") and "dark" or "light"
-end
-```
-
-## 🎮 Commands
+## Commands
 
 | Command | Description |
 |---------|-------------|
 | `:ColorfulTimes` | Open the interactive schedule manager |
-| `:ColorfulTimesToggle` | Enable/disable the plugin |
+| `:ColorfulTimesToggle` | Enable or disable the plugin |
 | `:ColorfulTimesReload` | Reload configuration from disk |
 | `:checkhealth colorful-times` | Run diagnostics |
 
-### TUI Keymaps
+## Schedule Manager TUI
 
-When the schedule manager is open:
+Run `:ColorfulTimes` to open the interactive schedule manager.
+
+```
+┌─────────────────── Colorful Times ─────────────────────┐
+│  [●] ENABLED  2.0.0                                     │
+│ ────────────────────────────────────────────────────── │
+│  START   STOP    COLORSCHEME                   BG       │
+│ ────────────────────────────────────────────────────── │
+│  06:00   18:00   tokyonight-day                light    │
+│  18:00   06:00   tokyonight                    dark     │
+│ ────────────────────────────────────────────────────── │
+│  [a]dd [e]dit [d]el [t]oggle [r]eload [?]help [q]uit  │
+└─────────────────────────────────────────────────────────┘
+```
+
+### TUI Keymaps
 
 | Key | Action |
 |-----|--------|
-| `j` / `↓` | Move down |
-| `k` / `↑` | Move up |
+| `j` / `Down` | Move down |
+| `k` / `Up` | Move up |
 | `a` | Add new entry |
 | `e` / `Enter` | Edit selected entry |
 | `d` / `x` | Delete selected entry |
-| `t` | Toggle enabled/disabled |
+| `t` | Toggle enabled or disabled |
 | `r` | Reload configuration |
 | `?` | Show help |
 | `q` / `Esc` | Close TUI |
 
-## 📁 State Persistence
+## System Background Detection
 
-When `persist = true` (default), changes made via the TUI are saved to:
+The plugin detects your system appearance based on your OS environment.
 
-```
-~/.local/share/nvim/colorful-times/state.json
-```
+* **macOS**: Automatically detects appearance using `osascript` as the primary method, with a `defaults read` fallback.
+* **Linux**: Auto-detects KDE and GNOME environments via `kreadconfig5`/`kreadconfig6` or `gsettings`.
+* **Custom script**: Set `system_background_detection_script` to an absolute path pointing to a script that exits 0 for dark mode and 1 for light mode.
+* **Custom function**: Set `system_background_detection` to a Lua function that returns `"dark"` or `"light"`.
 
-The persisted state is merged with your config on startup, with your config taking precedence.
+## Troubleshooting
 
-## 🔌 API
+### macOS Shortcuts and Automations
+
+If you use macOS keyboard shortcuts or Automator scripts to toggle system appearance, the change might not be detected immediately. The plugin relies on an asynchronous polling mechanism. You might need to wait 1 to 2 poll cycles. You can adjust the `refresh_time` in your configuration to a lower value for faster detection. If the theme still doesn't update, run `:ColorfulTimesReload` to force a manual check.
+
+### State Persistence
+
+When `persist = true`, the plugin saves your TUI edits to disk.
+
+State file location:
+`~/.local/share/nvim/colorful-times/state.json`
+
+If the TUI shows unexpected entries or the configuration breaks, you can reset the state by deleting this file. The plugin will rebuild it from your configuration on the next run.
+
+## API
+
+You can call these public functions directly in your Lua configuration.
 
 ```lua
 local ct = require("colorful-times")
 
--- Setup the plugin
+-- Initialize the plugin with options
 ct.setup({ ... })
 
--- Toggle on/off
+-- Toggle the plugin enabled/disabled state
 ct.toggle()
 
--- Reload configuration
+-- Reload the configuration and re-apply colorschemes
 ct.reload()
 
--- Open TUI
+-- Open the schedule manager TUI
 ct.open()
-
--- Manually apply colorscheme
-ct.apply_colorscheme()
 ```
 
-## 🏥 Health Check
+## Performance
 
-Run `:checkhealth colorful-times` to verify:
+Colorful Times guarantees zero startup impact. It achieves this by lazily loading heavy modules on their first use. All background detection and file operations use fully asynchronous `vim.uv` APIs. The plugin also pre-caches schedules and uses an efficient LRU cache for time parsing to minimize CPU cycles.
 
-- ✓ Neovim version (>= 0.12)
-- ✓ vim.uv availability
-- ✓ snacks.nvim (optional, for better TUI)
-- ✓ State directory writable
-- ✓ Schedule entries valid
+## License
 
-## ⚡ Performance
-
-Colorful Times is optimized for zero startup impact:
-
-- Lazy-loads heavy modules on first use
-- Uses `vim.uv` for all async operations
-- Caches preprocessed schedules
-- Efficient LRU cache for time parsing
-- Minimal memory footprint
-
-## 📝 License
-
-MIT License — see [LICENSE](./LICENSE) for details.
-
-## 🙏 Credits
-
-Built with ❤️ for the Neovim community.
+MIT License. See LICENSE for details.
