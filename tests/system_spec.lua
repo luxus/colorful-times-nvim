@@ -54,17 +54,22 @@ describe("system.get_background with system_background_detection_script", functi
   local M = require("colorful-times")
   local system = require("colorful-times.system")
   local orig_sysname = system.sysname
+  local orig_wait = vim.wait
   local tmpdir = nil
 
   before_each(function()
     -- Mock Linux for these tests
     system.sysname = function() return "Linux" end
+    vim.wait = function(timeout, ...)
+      return orig_wait(math.max(timeout, 2000), ...)
+    end
     -- Create temp directory for test scripts
     tmpdir = uv.fs_mkdtemp("/tmp/colorful_times_test_XXXXXX")
   end)
 
   after_each(function()
     system.sysname = orig_sysname
+    vim.wait = orig_wait
     M.config.system_background_detection_script = nil
     -- Clean up temp directory
     if tmpdir then
@@ -152,5 +157,69 @@ describe("system.get_background with system_background_detection_script", functi
     vim.wait(100, function() return result ~= nil end)
     -- Should fallback to the provided fallback value (directory not executable)
     assert.are.equal("light", result)
+  end)
+end)
+
+describe("system.get_background with command override", function()
+  local system
+  local plugin
+
+  before_each(function()
+    package.loaded["colorful-times.system"] = nil
+    package.loaded["colorful-times"] = nil
+    system = require("colorful-times.system")
+    plugin = require("colorful-times")
+  end)
+
+  after_each(function()
+    plugin.config.system_background_detection = nil
+    package.loaded["colorful-times.system"] = nil
+    package.loaded["colorful-times"] = nil
+  end)
+
+  it("returns dark when the custom command exits 0", function()
+    plugin.config.system_background_detection = { "sh", "-c", "exit 0" }
+
+    local result
+    system.get_background(function(bg) result = bg end, "light")
+
+    vim.wait(200, function() return result ~= nil end)
+    assert.are.equal("dark", result)
+  end)
+
+  it("returns light when the custom command exits 1", function()
+    plugin.config.system_background_detection = { "sh", "-c", "exit 1" }
+
+    local result
+    system.get_background(function(bg) result = bg end, "dark")
+
+    vim.wait(200, function() return result ~= nil end)
+    assert.are.equal("light", result)
+  end)
+end)
+
+describe("system.get_background unsupported platform regression", function()
+  local system
+  local orig_sysname
+
+  before_each(function()
+    package.loaded["colorful-times.system"] = nil
+    system = require("colorful-times.system")
+    orig_sysname = system.sysname
+  end)
+
+  after_each(function()
+    system.sysname = orig_sysname
+    package.loaded["colorful-times.system"] = nil
+  end)
+
+  it("returns the fallback for FreeBSD", function()
+    system.sysname = function() return "FreeBSD" end
+
+    local result
+    system.get_background(function(bg) result = bg end, "dark")
+
+    vim.wait(100, function() return result ~= nil end)
+    assert.are.equal("dark", result)
   end)
 end)
