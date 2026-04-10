@@ -172,7 +172,7 @@ function M.load()
   return result
 end
 
----Save state to disk
+---Save state to disk (atomic write via temp file + rename)
 ---@param data table
 function M.save(data)
   local ok, err = M.validate_state(data)
@@ -180,29 +180,38 @@ function M.save(data)
     vim.notify("colorful-times: state validation failed: " .. (err or "unknown"), vim.log.levels.ERROR)
     return
   end
-  
+
   local path = M.path()
   vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
-  
+
   local content = vim.json.encode(data)
+  local tmp_path = path .. ".tmp"
   local flags = bit.bor(uv.constants.O_WRONLY, uv.constants.O_CREAT, uv.constants.O_TRUNC)
-  
-  local fd, open_err = uv.fs_open(path, flags, tonumber("644", 8))
+
+  local fd, open_err = uv.fs_open(tmp_path, flags, tonumber("644", 8))
   if not fd then
     local code = open_err and open_err:match("^(%S+):")
     local msg = ERROR_MESSAGES[code] or ("Could not write state file (" .. (open_err or "unknown") .. ")")
     vim.notify("colorful-times: " .. msg .. ": " .. path, vim.log.levels.ERROR)
     return
   end
-  
+
   local write_ok, write_err = pcall(function()
     return uv.fs_write(fd, content, 0)
   end)
-  
+
   uv.fs_close(fd)
-  
+
   if not write_ok or not write_err then
     vim.notify("colorful-times: failed to write state file: " .. path, vim.log.levels.ERROR)
+    uv.fs_unlink(tmp_path)
+    return
+  end
+
+  local rename_ok = uv.fs_rename(tmp_path, path)
+  if not rename_ok then
+    vim.notify("colorful-times: failed to rename temp state file: " .. path, vim.log.levels.ERROR)
+    uv.fs_unlink(tmp_path)
   end
 end
 
@@ -217,12 +226,8 @@ function M.merge(config, stored)
     if stored[key] ~= nil then result[key] = stored[key] end
   end
   
-  if stored.default ~= nil then
-    if next(stored.default) == nil then
-      result.default = {}
-    else
-      result.default = vim.tbl_deep_extend("force", result.default or {}, stored.default)
-    end
+  if stored.default ~= nil and type(stored.default) == "table" then
+    result.default = vim.tbl_deep_extend("force", result.default or {}, stored.default)
   end
   
   return result

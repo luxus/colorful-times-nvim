@@ -138,6 +138,71 @@ describe("state.save and state.load roundtrip", function()
   end)
 end)
 
+describe("state persistence regressions", function()
+  local state
+  local test_dir
+  local file
+  local orig_path
+
+  before_each(function()
+    package.loaded["colorful-times.state"] = nil
+    state = require("colorful-times.state")
+    test_dir = os.tmpname() .. "_dir"
+    vim.fn.mkdir(test_dir, "p")
+    file = test_dir .. "/state.json"
+    orig_path = state.path
+    state.path = function() return file end
+  end)
+
+  after_each(function()
+    state.path = orig_path
+    vim.fn.delete(test_dir, "rf")
+    package.loaded["colorful-times.state"] = nil
+  end)
+
+  it("removes the temporary file after an atomic save and preserves data", function()
+    local data = {
+      enabled = true,
+      persist = true,
+      schedule = {
+        { start = "06:00", stop = "18:00", colorscheme = "day", background = "light" },
+      },
+      default = {
+        colorscheme = "fallback",
+        background = "dark",
+      },
+    }
+
+    state.save(data)
+
+    assert.is_nil(vim.uv.fs_stat(file .. ".tmp"))
+    assert.are.same(data, state.load())
+  end)
+
+  it("keeps defaults intact when invalid loaded state is merged", function()
+    local handle = assert(io.open(file, "w"))
+    handle:write("not json")
+    handle:close()
+
+    local loaded = state.load()
+    local defaults = {
+      enabled = true,
+      persist = true,
+      refresh_time = 5000,
+      schedule = {
+        { start = "08:00", stop = "17:00", colorscheme = "base", background = "light" },
+      },
+      default = {
+        colorscheme = "base-default",
+        background = "system",
+      },
+    }
+
+    assert.are.same({}, loaded)
+    assert.are.same(defaults, state.merge(vim.deepcopy(defaults), loaded))
+  end)
+end)
+
 describe("state.merge", function()
   local base = {
     enabled = true,
@@ -231,17 +296,17 @@ describe("FIXED: complete merge - all config keys", function()
     assert.are.equal("default", result.default.colorscheme)
   end)
 
-  it("empty default table still merges (regression)", function()
+  it("empty default table preserves existing defaults", function()
     local result = state.merge(vim.deepcopy(full_base), {
       default = {}
     })
-    assert.are.same({}, result.default)
+    assert.are.equal("default", result.default.colorscheme)
   end)
 end)
 
 -- State validation tests (task-5)
-describe("FIXED: file locking - concurrent access", function()
-  it("allows multiple shared readers simultaneously", function()
+describe("sequential I/O integrity", function()
+  it("multiple sequential reads return consistent data", function()
     local tmp = os.tmpname()
     local dir = tmp .. "_dir"
     vim.fn.mkdir(dir, "p")
@@ -271,7 +336,7 @@ describe("FIXED: file locking - concurrent access", function()
     end
   end)
 
-  it("exclusive lock prevents concurrent writes", function()
+  it("sequential writes persist correctly", function()
     local tmp = os.tmpname()
     local dir = tmp .. "_dir"
     vim.fn.mkdir(dir, "p")
@@ -302,7 +367,7 @@ describe("FIXED: file locking - concurrent access", function()
     vim.fn.delete(dir, "rf")
   end)
 
-  it("data integrity maintained through concurrent operations", function()
+  it("complex data survives write-read roundtrip", function()
     local tmp = os.tmpname()
     local dir = tmp .. "_dir"
     vim.fn.mkdir(dir, "p")
