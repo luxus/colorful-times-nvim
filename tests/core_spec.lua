@@ -178,3 +178,132 @@ describe("core.setup validation", function()
     assert.are.equal("dark", M.config.default.background)
   end)
 end)
+
+describe("core.resolve_theme wall clock", function()
+  local core
+  local plugin
+
+  before_each(function()
+    package.loaded["colorful-times.core"] = nil
+    package.loaded["colorful-times"] = nil
+    core = require("colorful-times.core")
+    plugin = require("colorful-times")
+  end)
+
+  after_each(function()
+    package.loaded["colorful-times.core"] = nil
+    package.loaded["colorful-times"] = nil
+  end)
+
+  it("resolves the active schedule entry using wall-clock time", function()
+    local now = os.date("*t")
+    local current = now.hour * 60 + now.min
+    local start = (current - 1) % 1440
+    local stop = (current + 1) % 1440
+
+    plugin.config.enabled = true
+    plugin.config.default.background = "dark"
+    plugin.config.schedule = {
+      {
+        start = string.format("%02d:%02d", math.floor(start / 60), start % 60),
+        stop = string.format("%02d:%02d", math.floor(stop / 60), stop % 60),
+        colorscheme = "wall-clock-theme",
+        background = "light",
+      },
+    }
+
+    local colorscheme, background = core.resolve_theme()
+    assert.are.equal("wall-clock-theme", colorscheme)
+    assert.are.equal("light", background)
+  end)
+end)
+
+describe("core.setup regression coverage", function()
+  local core
+  local plugin
+  local state
+  local orig_notify
+  local orig_defer_fn
+
+  before_each(function()
+    package.loaded["colorful-times.core"] = nil
+    package.loaded["colorful-times"] = nil
+    package.loaded["colorful-times.state"] = nil
+    core = require("colorful-times.core")
+    plugin = require("colorful-times")
+    state = require("colorful-times.state")
+    orig_notify = vim.notify
+    orig_defer_fn = vim.defer_fn
+  end)
+
+  after_each(function()
+    vim.notify = orig_notify
+    vim.defer_fn = orig_defer_fn
+    vim.api.nvim_clear_autocmds({ group = "ColorfulTimes" })
+    package.loaded["colorful-times.core"] = nil
+    package.loaded["colorful-times"] = nil
+    package.loaded["colorful-times.state"] = nil
+  end)
+
+  it("rejects schedule entries where start equals stop", function()
+    local orig_config = vim.deepcopy(plugin.config)
+    local notified = false
+    local notify_msg
+
+    vim.notify = function(msg)
+      notified = true
+      notify_msg = msg
+    end
+
+    core.setup({
+      schedule = {
+        { start = "06:00", stop = "06:00", colorscheme = "test" },
+      },
+    })
+
+    assert.is_true(notified)
+    assert.is_truthy(notify_msg:match("start and stop times must differ"))
+    assert.are.same(orig_config, plugin.config)
+  end)
+
+  it("registers focus autocmds even when disabled", function()
+    plugin.config.enabled = true
+
+    core.setup({ enabled = false })
+
+    local autocmds = vim.api.nvim_get_autocmds({ group = "ColorfulTimes" })
+    local events = {}
+    for _, autocmd in ipairs(autocmds) do
+      events[autocmd.event] = true
+    end
+
+    assert.is_true(events.FocusLost)
+    assert.is_true(events.FocusGained)
+  end)
+
+  it("skips state loading when persist is false", function()
+    local calls = 0
+    local orig_load = state.load
+
+    state.load = function()
+      calls = calls + 1
+      return {}
+    end
+    vim.defer_fn = function(fn)
+      fn()
+    end
+
+    core.setup({
+      enabled = true,
+      persist = false,
+      default = {
+        background = "light",
+        colorscheme = "default",
+      },
+      schedule = {},
+    })
+
+    state.load = orig_load
+    assert.are.equal(0, calls)
+  end)
+end)

@@ -37,15 +37,11 @@ local function stop_all_timers()
   stop_timer(_timers.poll);     _timers.poll = nil
 end
 
----Get current time in minutes since midnight
+---Get current time in minutes since midnight (local wall-clock)
 ---@return integer
 local function now_mins()
-  -- Use vim.uv.now() for faster time access (milliseconds since epoch)
-  -- This avoids the overhead of os.date() table construction
-  local now_ms = uv.now()
-  local days_since_epoch = math.floor(now_ms / 86400000)
-  local ms_today = now_ms - (days_since_epoch * 86400000)
-  return math.floor(ms_today / 60000)
+  local t = os.date("*t")
+  return t.hour * 60 + t.min
 end
 
 -- ─── Theme Resolution ────────────────────────────────────────────────────────
@@ -136,6 +132,7 @@ local function arm_schedule_timer()
   _timers.schedule:start(diff * MS_PER_MINUTE, 0, vim.schedule_wrap(function()
     M.apply_colorscheme()
     arm_schedule_timer()
+    start_poll_timer()
   end))
 end
 
@@ -223,57 +220,57 @@ end
 
 ---@param opts ColorfulTimes.Config?
 function M.setup(opts)
-  -- Validate user opts immediately (fast, no I/O)
   if opts then
     local ok, err = validate(opts)
     if not ok then
       vim.notify("colorful-times: " .. err, vim.log.levels.ERROR)
       return
     end
-    
+
     local safe = vim.deepcopy(opts)
     if safe.default then
       M.config.default = vim.tbl_deep_extend("force", M.config.default, safe.default)
       safe.default = nil
     end
-    -- Use 'force' to overwrite everything including refresh_time
     for k, v in pairs(safe) do
       M.config[k] = v
     end
-    
-    -- Clear schedule cache when config changes
+
     _parsed_schedule = nil
   end
-  
+
+  -- Register focus autocmds unconditionally (toggle needs them later)
+  vim.api.nvim_create_autocmd("FocusLost", {
+    group = _augroup,
+    callback = function() _focused = false end,
+  })
+  vim.api.nvim_create_autocmd("FocusGained", {
+    group = _augroup,
+    callback = function()
+      _focused = true
+      if needs_system_poll() then
+        system.get_background(function(bg)
+          if bg ~= _previous_bg then M.apply_colorscheme() end
+          start_poll_timer()
+        end, _previous_bg or "dark")
+      end
+    end,
+  })
+
   if not M.config.enabled then return end
-  
-  -- Defer state loading and initialization to avoid blocking startup
+
   vim.defer_fn(function()
-    -- Register focus autocmds (only when enabled and active)
-    vim.api.nvim_create_autocmd("FocusLost", {
-      group = _augroup,
-      callback = function() _focused = false end,
-    })
-    vim.api.nvim_create_autocmd("FocusGained", {
-      group = _augroup,
-      callback = function()
-        _focused = true
-        if needs_system_poll() then
-          system.get_background(function(bg)
-            if bg ~= _previous_bg then M.apply_colorscheme() end
-          end, _previous_bg or "dark")
+    if M.config.persist then
+      local stored = state.load()
+      if type(stored) == "table" and next(stored) then
+        local valid, _ = state.validate_state(stored)
+        if valid then
+          M.config = state.merge(M.config, stored)
+          _parsed_schedule = nil
         end
-      end,
-    })
-    
-    -- Load persisted state (async file I/O)
-    local stored = state.load()
-    if type(stored) == "table" and next(stored) then
-      M.config = state.merge(M.config, stored)
-      _parsed_schedule = nil  -- Clear cache after merge
+      end
     end
-    
-    -- Now do the actual initialization work
+
     M.apply_colorscheme()
     arm_schedule_timer()
     start_poll_timer()
