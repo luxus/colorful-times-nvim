@@ -105,7 +105,7 @@ describe("schedule.preprocess", function()
     -- Clear any cached state that might affect this test
     package.loaded["colorful-times.schedule"] = nil
     local clean_schedule = require("colorful-times.schedule")
-    
+
     local errors = {}
     -- patch vim.notify to capture messages
     local orig = vim.notify
@@ -306,7 +306,7 @@ describe("schedule.parse_time cache", function()
     -- Reload module to get fresh cache
     package.loaded["colorful-times.schedule"] = nil
     local test_schedule = require("colorful-times.schedule")
-    
+
     -- First call should compute and cache
     local result1 = test_schedule.parse_time("12:30")
     assert.are.equal(750, result1)
@@ -323,7 +323,7 @@ describe("schedule.parse_time cache", function()
     -- Reload module to get fresh cache
     package.loaded["colorful-times.schedule"] = nil
     local test_schedule = require("colorful-times.schedule")
-    
+
     -- First call should compute and cache nil
     local result1 = test_schedule.parse_time("invalid")
     assert.is_nil(result1)
@@ -343,14 +343,14 @@ describe("schedule.parse_time cache", function()
     -- Reload module to get fresh cache
     package.loaded["colorful-times.schedule"] = nil
     local test_schedule = require("colorful-times.schedule")
-    
+
     -- Monkey-patch string.match to count calls
     local orig_match = string.match
     local call_count = 0
-    string.match = function(s, p)
+    rawset(string, "match", function(s, p)
       call_count = call_count + 1
       return orig_match(s, p)
-    end
+    end)
 
     -- First call should use string.match
     test_schedule.parse_time("14:45")
@@ -369,21 +369,21 @@ describe("schedule.parse_time cache", function()
     assert.are.equal(2, call_count)
 
     -- Restore original
-    string.match = orig_match
+    rawset(string, "match", orig_match)
   end)
 
   it("actually caches invalid results - string.match not called on second access", function()
     -- Reload module to get fresh cache
     package.loaded["colorful-times.schedule"] = nil
     local test_schedule = require("colorful-times.schedule")
-    
+
     -- Monkey-patch string.match to count calls
     local orig_match = string.match
     local call_count = 0
-    string.match = function(s, p)
+    rawset(string, "match", function(s, p)
       call_count = call_count + 1
       return orig_match(s, p)
-    end
+    end)
 
     -- First call with invalid time should use string.match
     test_schedule.parse_time("not-a-time")
@@ -402,7 +402,7 @@ describe("schedule.parse_time cache", function()
     assert.are.equal(2, call_count)
 
     -- Restore original
-    string.match = orig_match
+    rawset(string, "match", orig_match)
   end)
 
   it("memoizes many distinct values without eviction side effects", function()

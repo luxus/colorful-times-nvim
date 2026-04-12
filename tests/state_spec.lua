@@ -139,23 +139,23 @@ describe("state.save and state.load roundtrip", function()
 end)
 
 describe("state persistence regressions", function()
-  local state
+  local state_mod
   local test_dir
   local file
   local orig_path
 
   before_each(function()
     package.loaded["colorful-times.state"] = nil
-    state = require("colorful-times.state")
+    state_mod = require("colorful-times.state")
     test_dir = os.tmpname() .. "_dir"
     vim.fn.mkdir(test_dir, "p")
     file = test_dir .. "/state.json"
-    orig_path = state.path
-    state.path = function() return file end
+    orig_path = state_mod.path
+    state_mod.path = function() return file end
   end)
 
   after_each(function()
-    state.path = orig_path
+    state_mod.path = orig_path
     vim.fn.delete(test_dir, "rf")
     package.loaded["colorful-times.state"] = nil
   end)
@@ -173,10 +173,10 @@ describe("state persistence regressions", function()
       },
     }
 
-    state.save(data)
+    state_mod.save(data)
 
     assert.is_nil(vim.uv.fs_stat(file .. ".tmp"))
-    assert.are.same(data, state.load())
+    assert.are.same(data, state_mod.load())
   end)
 
   it("keeps defaults intact when invalid loaded state is merged", function()
@@ -184,7 +184,7 @@ describe("state persistence regressions", function()
     handle:write("not json")
     handle:close()
 
-    local loaded = state.load()
+    local loaded = state_mod.load()
     local defaults = {
       enabled = true,
       persist = true,
@@ -199,7 +199,7 @@ describe("state persistence regressions", function()
     }
 
     assert.are.same({}, loaded)
-    assert.are.same(defaults, state.merge(vim.deepcopy(defaults), loaded))
+    assert.are.same(defaults, state_mod.merge(vim.deepcopy(defaults), loaded))
   end)
 end)
 
@@ -322,7 +322,7 @@ describe("sequential I/O integrity", function()
 
     -- Simulate multiple readers by reading in sequence
     local results = {}
-    for i = 1, 5 do
+    for _ = 1, 5 do
       table.insert(results, state.load())
     end
 

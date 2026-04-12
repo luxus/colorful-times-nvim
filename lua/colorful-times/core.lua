@@ -122,18 +122,18 @@ end
 ---Apply theme with optional async system detection
 function M.apply_colorscheme()
   local cs, bg, use_default_theme_overrides = M.resolve_theme()
-  
+
   if bg ~= "system" then
     vim.schedule(function() apply_sync(cs, bg) end)
     return
   end
-  
+
   -- System background: apply fallback first, then detect
   local fallback = _previous_bg or vim.o.background or "dark"
   local fallback_cs = resolve_detected_colorscheme(cs, fallback, use_default_theme_overrides)
-  
+
   vim.schedule(function() apply_sync(fallback_cs, fallback) end)
-  
+
   system.get_background(function(detected)
     if detected ~= _previous_bg then
       local real_cs = resolve_detected_colorscheme(cs, detected, use_default_theme_overrides)
@@ -233,7 +233,7 @@ local function needs_system_poll()
   if not M.config.enabled then
     return M.config.default.background == "system"
   end
-  
+
   local current_mins = now_mins()
   _parsed_schedule = _parsed_schedule or schedule.preprocess(M.config.schedule, M.config.default.background)
   local active = schedule.get_active_entry(_parsed_schedule, current_mins)
@@ -241,15 +241,18 @@ local function needs_system_poll()
 end
 
 ---Arm the schedule boundary timer
+local start_poll_timer
+
+---Arm the schedule boundary timer
 local function arm_schedule_timer()
   stop_timer(_timers.schedule)
   if not M.config.enabled then return end
-  
+
   -- Use cached parsed schedule for efficiency
   _parsed_schedule = _parsed_schedule or schedule.preprocess(M.config.schedule, M.config.default.background)
   local diff = schedule.next_change_at(_parsed_schedule, now_mins())
   if not diff then return end
-  
+
   _timers.schedule = uv.new_timer()
   _timers.schedule:start(diff * MS_PER_MINUTE, 0, vim.schedule_wrap(function()
     M.apply_colorscheme()
@@ -259,13 +262,13 @@ local function arm_schedule_timer()
 end
 
 ---Start the system background poll timer
-local function start_poll_timer()
+start_poll_timer = function()
   stop_timer(_timers.poll)
   _poll_inflight = false
-  
+
   if not needs_system_poll() then return end
   if not system.has_detection() then return end
-  
+
   local fallback = _previous_bg or "dark"
   _timers.poll = uv.new_timer()
   _timers.poll:start(0, M.config.refresh_time, function()
@@ -344,7 +347,7 @@ local function validate(opts)
   if opts.enabled ~= nil and type(opts.enabled) ~= "boolean" then
     return false, "enabled must be a boolean"
   end
-  
+
   if opts.refresh_time ~= nil then
     if type(opts.refresh_time) ~= "number" or opts.refresh_time < 1000 then
       return false, "refresh_time must be an integer >= 1000"
@@ -354,7 +357,7 @@ local function validate(opts)
   if opts.persist ~= nil and type(opts.persist) ~= "boolean" then
     return false, "persist must be a boolean"
   end
-  
+
   if opts.schedule ~= nil then
     if type(opts.schedule) ~= "table" then
       return false, "schedule must be an array"
@@ -364,7 +367,7 @@ local function validate(opts)
       if not ok then return false, string.format("schedule[%d]: %s", i, err) end
     end
   end
-  
+
   if opts.default and opts.default.background then
     if not VALID_BACKGROUNDS[opts.default.background] then
       return false, "background must be 'light', 'dark', or 'system'"
@@ -387,7 +390,7 @@ local function validate(opts)
       end
     end
   end
-  
+
   return true
 end
 

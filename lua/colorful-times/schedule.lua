@@ -31,20 +31,20 @@ function M.parse_time(str)
     if cached == _CACHE_NIL then return nil end
     return cached
   end
-  
+
   -- Parse the time string
   local hour, min = str:match("^(%d%d?):(%d%d)$")
   if not hour then
     _time_cache[str] = _CACHE_NIL
     return nil
   end
-  
+
   hour, min = tonumber(hour), tonumber(min)
   if hour >= 24 or min >= 60 then
     _time_cache[str] = _CACHE_NIL
     return nil
   end
-  
+
   local result = hour * 60 + min
   _time_cache[str] = result
   return result
@@ -95,7 +95,7 @@ function M.preprocess(raw, default_bg)
 
   local result = {}
   local boundaries_set = {}  -- For deduplication
-  
+
   for idx, slot in ipairs(raw) do
     local ok, err = M.validate_entry(slot)
     if not ok then
@@ -114,7 +114,7 @@ function M.preprocess(raw, default_bg)
       boundaries_set[stop_time] = true
     end
   end
-  
+
   -- Build sorted boundary table for O(log n) lookup
   if #result > 0 then
     local boundaries = {}
@@ -125,7 +125,7 @@ function M.preprocess(raw, default_bg)
     -- Store on result table (non-numeric key won't affect ipairs)
     result._boundaries = boundaries
   end
-  
+
   return result
 end
 
@@ -135,13 +135,13 @@ end
 ---@return boolean
 local function is_active(entry, time_mins)
   local start_t, stop_t, current = entry.start_time, entry.stop_time, time_mins
-  
+
   if stop_t <= start_t then
     -- Overnight span (e.g., 22:00 -> 06:00)
     if current < start_t then current = current + MINUTES_PER_DAY end
     stop_t = stop_t + MINUTES_PER_DAY
   end
-  
+
   return current >= start_t and current < stop_t
 end
 
@@ -174,12 +174,12 @@ end
 ---@return integer|nil
 function M.next_change_at(parsed, time_mins)
   if #parsed == 0 then return nil end
-  
+
   -- Use cache if same parsed schedule and time_mins matches cached value
   if _next_change_cache_entry == parsed and _next_change_cache_time == time_mins then
     return _next_change_cache_result
   end
-  
+
   local boundaries = parsed._boundaries
   if not boundaries then
     -- Fallback to O(n) method if boundaries not precomputed (shouldn't happen)
@@ -193,7 +193,7 @@ function M.next_change_at(parsed, time_mins)
     end
     return min_diff
   end
-  
+
   -- Binary search to find first boundary > time_mins
   local lo, hi = 1, #boundaries
   while lo <= hi do
@@ -204,7 +204,7 @@ function M.next_change_at(parsed, time_mins)
       hi = mid - 1
     end
   end
-  
+
   local min_diff
   if lo <= #boundaries then
     min_diff = boundaries[lo] - time_mins
@@ -212,12 +212,12 @@ function M.next_change_at(parsed, time_mins)
     -- Wrap around to first boundary of next day
     min_diff = (boundaries[1] + MINUTES_PER_DAY) - time_mins
   end
-  
+
   -- Simple single-entry cache with replacement strategy
   _next_change_cache_entry = parsed
   _next_change_cache_time = time_mins
   _next_change_cache_result = min_diff
-  
+
   return min_diff
 end
 

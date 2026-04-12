@@ -61,7 +61,7 @@ describe("core.setup validation", function()
     local notified = false
     local notify_msg = nil
     local orig_notify = vim.notify
-    vim.notify = function(msg, level)
+    vim.notify = function(msg, _level)
       notified = true
       notify_msg = msg
     end
@@ -85,7 +85,7 @@ describe("core.setup validation", function()
     local notified = false
     local notify_msg = nil
     local orig_notify = vim.notify
-    vim.notify = function(msg, level)
+    vim.notify = function(msg, _level)
       notified = true
       notify_msg = msg
     end
@@ -101,12 +101,11 @@ describe("core.setup validation", function()
 
   it("rejects invalid schedule entry", function()
     local core = require("colorful-times.core")
-    local M = require("colorful-times")
 
     local notified = false
     local notify_msg = nil
     local orig_notify = vim.notify
-    vim.notify = function(msg, level)
+    vim.notify = function(msg, _level)
       notified = true
       notify_msg = msg
     end
@@ -133,7 +132,7 @@ describe("core.setup validation", function()
     local notified = false
     local notify_msg = nil
     local orig_notify = vim.notify
-    vim.notify = function(msg, level)
+    vim.notify = function(msg, _level)
       notified = true
       notify_msg = msg
     end
@@ -153,7 +152,7 @@ describe("core.setup validation", function()
 
     local notified = false
     local orig_notify = vim.notify
-    vim.notify = function(msg, level)
+    vim.notify = function(_msg, level)
       if level == vim.log.levels.ERROR then
         notified = true
       end
@@ -193,15 +192,15 @@ describe("core.resolve_theme wall clock", function()
   end)
 
   after_each(function()
-    os.date = orig_os_date
+    rawset(os, "date", orig_os_date)
     package.loaded["colorful-times.core"] = nil
     package.loaded["colorful-times"] = nil
   end)
 
   it("resolves the active schedule entry using wall-clock time", function()
-    os.date = function()
+    rawset(os, "date", function()
       return { hour = 12, min = 0 }
-    end
+    end)
 
     plugin.config.enabled = true
     plugin.config.default.background = "dark"
@@ -220,9 +219,9 @@ describe("core.resolve_theme wall clock", function()
   end)
 
   it("keeps an explicit schedule colorscheme when the schedule entry uses system background", function()
-    os.date = function()
+    rawset(os, "date", function()
       return { hour = 22, min = 30 }
-    end
+    end)
 
     plugin.config.enabled = true
     plugin.config.default.background = "system"
@@ -273,7 +272,7 @@ describe("core.setup regression coverage", function()
     vim.notify = orig_notify
     vim.defer_fn = orig_defer_fn
     state.save = orig_save
-    os.date = orig_os_date
+    rawset(os, "date", orig_os_date)
     vim.api.nvim_clear_autocmds({ group = "ColorfulTimes" })
     package.loaded["colorful-times.core"] = nil
     package.loaded["colorful-times"] = nil
@@ -464,9 +463,9 @@ describe("core.setup regression coverage", function()
     }
     plugin.config.schedule = {}
 
-    os.date = function()
+    rawset(os, "date", function()
       return { hour = 9, min = 0 }
-    end
+    end)
 
     vim.o.background = "light"
     local status = core.status()
