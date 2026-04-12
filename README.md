@@ -10,7 +10,7 @@ A fast, lightweight Neovim plugin that automatically changes your colorscheme ba
 
 * Time-based schedules for automatic theme changes throughout the day.
 * System appearance sync that follows your OS light or dark mode.
-* Interactive TUI schedule manager you can drive with your keyboard.
+* Interactive TUI for both schedule entries and default theme settings.
 * State persistence saves your changes automatically.
 * Zero startup impact using fully asynchronous background detection.
 
@@ -77,18 +77,22 @@ The `snacks.nvim` plugin is optional. If installed, Colorful Times uses it to pr
 
 ## Schedule Manager TUI
 
-Run `:ColorfulTimes` to open the interactive schedule manager.
+Run `:ColorfulTimes` to open the interactive manager.
 
 ```
 ┌─────────────────── Colorful Times ─────────────────────┐
 │  [●] ENABLED  2.0.0                                     │
+│ ────────────────────────────────────────────────────── │
+│  DEFAULT  kanagawa                      BG system       │
+│  LIGHT    kanagawa-lotus                               │
+│  DARK     kanagawa-wave                                │
 │ ────────────────────────────────────────────────────── │
 │  START   STOP    COLORSCHEME                   BG       │
 │ ────────────────────────────────────────────────────── │
 │  06:00   18:00   tokyonight-day                light    │
 │  18:00   06:00   tokyonight                    dark     │
 │ ────────────────────────────────────────────────────── │
-│  [a]dd [e]dit [d]el [t]oggle [r]eload [?]help [q]uit  │
+│  [a]dd [e]dit [d]el [c]olor [b]g [l]ight [n]ight ... │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -101,6 +105,10 @@ Run `:ColorfulTimes` to open the interactive schedule manager.
 | `a` | Add new entry |
 | `e` / `Enter` | Edit selected entry |
 | `d` / `x` | Delete selected entry |
+| `c` | Set the fallback default colorscheme |
+| `b` | Set the fallback default background |
+| `l` | Set or clear the system-light theme override |
+| `n` | Set or clear the system-dark theme override |
 | `t` | Toggle enabled or disabled |
 | `r` | Reload configuration |
 | `?` | Show help |
@@ -123,7 +131,9 @@ If you use macOS keyboard shortcuts or Automator scripts to toggle system appear
 
 ### State Persistence
 
-When `persist = true`, the plugin saves your TUI edits to disk.
+When `persist = true`, the plugin saves schedule edits, toggle state, and
+default theme settings to disk immediately. `:ColorfulTimesReload` rebuilds
+the live config from your setup config plus the persisted state file.
 
 State file location:
 `~/.local/share/nvim/colorful-times/state.json`

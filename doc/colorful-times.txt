@@ -113,8 +113,8 @@ Schedule syntax:
     Toggles the plugin enabled/disabled state.
 
 `require('colorful-times').reload()`                   *colorful-times.reload()*
-    Reloads the plugin configuration. Does NOT re-read state.json; callers
-    must mutate `M.config` first if they want config changes to take effect.
+    Rebuilds the live configuration from the original setup config and then
+    re-reads persisted state from `state.json` when `persist = true`.
 
 `require('colorful-times').open()`                     *colorful-times.open()*
     Opens the schedule manager TUI. Equivalent to `:ColorfulTimes`.
@@ -123,7 +123,7 @@ Schedule syntax:
 5. TUI — Schedule Manager                              *colorful-times-tui*
 
 Run `:ColorfulTimes` to open a keyboard-driven floating window for managing
-your time-based colorscheme schedule.
+your time-based colorscheme schedule and default theme settings.
 
 Keymaps~
     j / <Down>    Move selection down
@@ -131,6 +131,10 @@ Keymaps~
     a             Add a new schedule entry
     e / <Enter>   Edit the selected entry
     d / x         Delete the selected entry (with confirmation)
+    c             Set the fallback default colorscheme
+    b             Set the fallback default background
+    l             Set or clear the system-light theme override
+    n             Set or clear the system-dark theme override
     t             Toggle the plugin enabled/disabled
     r             Reload configuration
     ?             Show keymap help
@@ -140,7 +144,8 @@ When snacks.nvim is available, the colorscheme field uses a fuzzy picker
 with live preview. Without snacks.nvim, `vim.ui.select` is used instead.
 
 Changes made in the TUI are immediately applied and persisted to disk
-(unless `persist = false`).
+(unless `persist = false`). This includes schedule edits, enabled/disabled
+state, and default theme settings.
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:
