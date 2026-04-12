@@ -20,6 +20,40 @@ local ERROR_MESSAGES = {
 -- Static lookup for valid backgrounds
 local VALID_BACKGROUNDS = { light = true, dark = true, system = true }
 
+---Ensure the state directory exists without calling Vimscript in fast events.
+---@param path string
+---@return boolean ok
+---@return string? error
+local function ensure_parent_dir(path)
+  local dir = vim.fs.dirname(path)
+  if not dir or dir == "" then
+    return true
+  end
+
+  local normalized = vim.fs.normalize(dir)
+  local current = normalized:sub(1, 1) == "/" and "/" or ""
+
+  for part in normalized:gmatch("[^/]+") do
+    if current == "" or current == "/" then
+      current = current == "/" and (current .. part) or part
+    else
+      current = current .. "/" .. part
+    end
+
+    local stat = uv.fs_stat(current)
+    if not stat then
+      local ok, err = uv.fs_mkdir(current, tonumber("755", 8))
+      if not ok then
+        return false, err
+      end
+    elseif stat.type ~= "directory" then
+      return false, current .. " is not a directory"
+    end
+  end
+
+  return true
+end
+
 ---Validate state data structure with detailed errors
 ---@param data table
 ---@return boolean ok
@@ -193,7 +227,11 @@ function M.save(data)
   end
 
   local path = M.path()
-  vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
+  local dir_ok, dir_err = ensure_parent_dir(path)
+  if not dir_ok then
+    vim.notify("colorful-times: could not create state directory: " .. (dir_err or path), vim.log.levels.ERROR)
+    return
+  end
 
   local content = vim.json.encode(data)
   local tmp_path = path .. ".tmp"
