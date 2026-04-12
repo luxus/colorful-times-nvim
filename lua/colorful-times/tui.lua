@@ -45,6 +45,21 @@ local function pad(str, width)
   return #str >= width and str:sub(1, width - 1) .. " " or str .. string.rep(" ", width - #str)
 end
 
+local function focus_tui()
+  vim.schedule(function()
+    if _win and api.nvim_win_is_valid(_win) then
+      api.nvim_set_current_win(_win)
+    end
+  end)
+end
+
+local function focus_then(cb)
+  return function(...)
+    cb(...)
+    focus_tui()
+  end
+end
+
 ---@param value? string
 ---@return string
 local function display_theme(value)
@@ -70,7 +85,7 @@ local function pick_background(title, default, cb)
   vim.ui.select({ "light", "dark", "system" }, {
     prompt = title .. ": ",
     default = background_index(default),
-  }, cb)
+  }, focus_then(cb))
 end
 
 -- ─── Static Header Cache ─────────────────────────────────────────────────────
@@ -152,9 +167,9 @@ local function prompt_time(prompt, default, cb)
     end
     
     if has_snacks() then
-      require("snacks").input({ prompt = prompt, default = default or "" }, handler)
+      require("snacks").input({ prompt = prompt, default = default or "" }, focus_then(handler))
     else
-      vim.ui.input(opts, handler)
+      vim.ui.input(opts, focus_then(handler))
     end
   end
   ask()
@@ -163,57 +178,37 @@ end
 ---@param default? string
 ---@param cb fun(name: string|nil)
 local function pick_colorscheme(default, cb)
-  local original_cs, original_bg = vim.g.colors_name, vim.o.background
   local schemes = get_cached_schemes()
-  
-  local function revert()
-    pcall(vim.cmd.colorscheme, original_cs)
-    vim.o.background = original_bg
-  end
-  
-  if has_snacks() then
-    require("snacks").picker.pick({
-      title = "Colorscheme",
-      items = vim.iter(schemes):map(function(s) return { text = s } end):totable(),
-      format = "text",
-      -- FIX: Preselect the default colorscheme
-      selected = default and vim.iter(schemes):enumerate():find(function(_, s) return s == default end) or nil,
-      on_change = function(_, item)
-        if item then pcall(vim.cmd.colorscheme, item.text) end
-      end,
-      confirm = function(picker, item)
-        picker:close()
-        if item then cb(item.text) else revert(); cb(nil) end
-      end,
-      on_close = revert,
-    })
-  else
-    -- Fallback: find index of default for preselection
-    local default_idx = 1
-    if default then
-      for i, s in ipairs(schemes) do
-        if s == default then default_idx = i; break end
+
+  local default_idx = 1
+  if default then
+    for i, s in ipairs(schemes) do
+      if s == default then
+        default_idx = i
+        break
       end
     end
-    vim.ui.select(schemes, { prompt = "Colorscheme: ", default = default_idx }, function(choice)
-      if choice then cb(choice) else cb(nil) end
-    end)
   end
+
+  vim.ui.select(schemes, {
+    prompt = "Colorscheme: ",
+    default = default_idx,
+  }, focus_then(function(choice)
+    if choice then
+      cb(choice)
+    else
+      cb(nil)
+    end
+  end))
 end
 
 ---@param label string
 ---@param default? string
 ---@param cb fun(name: string|nil)
 local function pick_optional_colorscheme(label, default, cb)
-  local original_cs, original_bg = vim.g.colors_name, vim.o.background
   local clear_label = "(use fallback)"
   local schemes = { clear_label }
   vim.list_extend(schemes, get_cached_schemes())
-
-  local function revert()
-    pcall(vim.cmd.colorscheme, original_cs)
-    vim.o.background = original_bg
-  end
 
   local selected = 1
   if default then
@@ -225,46 +220,16 @@ local function pick_optional_colorscheme(label, default, cb)
     end
   end
 
-  if has_snacks() then
-    require("snacks").picker.pick({
-      title = label,
-      items = vim.iter(schemes):map(function(s)
-        return {
-          text = s,
-          previewable = s ~= clear_label,
-        }
-      end):totable(),
-      format = "text",
-      selected = selected,
-      on_change = function(_, item)
-        if item and item.text ~= clear_label then
-          pcall(vim.cmd.colorscheme, item.text)
-        end
-      end,
-      confirm = function(picker, item)
-        picker:close()
-        if not item then
-          revert()
-          cb(nil)
-          return
-        end
-        cb(item.text == clear_label and vim.NIL or item.text)
-      end,
-      on_close = revert,
-    })
-    return
-  end
-
   vim.ui.select(schemes, {
     prompt = label .. ": ",
     default = selected,
-  }, function(choice)
+  }, focus_then(function(choice)
     if not choice then
       cb(nil)
       return
     end
     cb(choice == clear_label and vim.NIL or choice)
-  end)
+  end))
 end
 
 ---@param existing? table
@@ -290,6 +255,7 @@ local function save_and_reload()
   core.save_state()
   core.reload()
   render()
+  focus_tui()
 end
 
 local function action_add()
