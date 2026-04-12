@@ -31,6 +31,30 @@ describe("system.get_background with function override", function()
 
     M.config.system_background_detection = nil
   end)
+
+  it("falls back when the function override errors", function()
+    local system = require("colorful-times.system")
+    local M = require("colorful-times")
+    local orig_notify = vim.notify
+    local result
+    local notified = false
+
+    M.config.system_background_detection = function()
+      error("boom")
+    end
+    vim.notify = function()
+      notified = true
+    end
+
+    system.get_background(function(bg) result = bg end, "light")
+
+    vim.wait(100, function() return result ~= nil end)
+    vim.notify = orig_notify
+    M.config.system_background_detection = nil
+
+    assert.is_true(notified)
+    assert.are.equal("light", result)
+  end)
 end)
 
 describe("system.get_background fallback", function()
@@ -195,6 +219,70 @@ describe("system.get_background with command override", function()
 
     vim.wait(200, function() return result ~= nil end)
     assert.are.equal("light", result)
+  end)
+
+  it("falls back when the custom command table is invalid", function()
+    local orig_notify = vim.notify
+    local notified = false
+    plugin.config.system_background_detection = {}
+    vim.notify = function()
+      notified = true
+    end
+
+    local result
+    system.get_background(function(bg) result = bg end, "dark")
+
+    vim.wait(100, function() return result ~= nil end)
+    vim.notify = orig_notify
+
+    assert.is_true(notified)
+    assert.are.equal("dark", result)
+  end)
+end)
+
+describe("system.has_detection", function()
+  local system
+  local plugin
+  local orig_sysname
+  local orig_executable
+  local orig_env
+
+  before_each(function()
+    package.loaded["colorful-times.system"] = nil
+    package.loaded["colorful-times"] = nil
+    system = require("colorful-times.system")
+    plugin = require("colorful-times")
+    orig_sysname = system.sysname
+    orig_executable = vim.fn.executable
+    orig_env = {
+      current = vim.env.XDG_CURRENT_DESKTOP,
+      session = vim.env.XDG_SESSION_DESKTOP,
+    }
+  end)
+
+  after_each(function()
+    system.sysname = orig_sysname
+    vim.fn.executable = orig_executable
+    vim.env.XDG_CURRENT_DESKTOP = orig_env.current
+    vim.env.XDG_SESSION_DESKTOP = orig_env.session
+    plugin.config.system_background_detection = nil
+    plugin.config.system_background_detection_script = nil
+    package.loaded["colorful-times.system"] = nil
+    package.loaded["colorful-times"] = nil
+  end)
+
+  it("returns false when Linux auto-detection has no supported desktop backend", function()
+    system.sysname = function()
+      return "Linux"
+    end
+    vim.env.XDG_CURRENT_DESKTOP = "XFCE"
+    vim.env.XDG_SESSION_DESKTOP = "XFCE"
+    vim.fn.executable = function()
+      return 0
+    end
+
+    assert.is_false(system.has_detection())
+    assert.is_false(system.detection_info().available)
   end)
 end)
 

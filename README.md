@@ -71,8 +71,11 @@ The `snacks.nvim` plugin is optional. If installed, Colorful Times uses it to pr
 | Command | Description |
 |---------|-------------|
 | `:ColorfulTimes` | Open the interactive schedule manager |
+| `:ColorfulTimesEnable` | Enable the plugin |
+| `:ColorfulTimesDisable` | Disable the plugin |
 | `:ColorfulTimesToggle` | Enable or disable the plugin |
 | `:ColorfulTimesReload` | Reload configuration from disk |
+| `:ColorfulTimesStatus` | Show the current resolved theme state |
 | `:checkhealth colorful-times` | Run diagnostics |
 
 ## Schedule Manager TUI
@@ -81,18 +84,20 @@ Run `:ColorfulTimes` to open the interactive manager.
 
 ```
 ┌─────────────────── Colorful Times ─────────────────────┐
-│  [●] ENABLED  2.0.0                                     │
+│  [●] ENABLED  2.2.0                                     │
 │ ────────────────────────────────────────────────────── │
 │  DEFAULT  kanagawa                      BG system       │
 │  LIGHT    kanagawa-lotus                               │
 │  DARK     kanagawa-wave                                │
+│  ORDER    schedule > default.background > default...   │
 │ ────────────────────────────────────────────────────── │
 │  START   STOP    COLORSCHEME                   BG       │
 │ ────────────────────────────────────────────────────── │
 │  06:00   18:00   tokyonight-day                light    │
 │  18:00   06:00   tokyonight                    dark     │
 │ ────────────────────────────────────────────────────── │
-│  [a]dd [e]dit [d]el [c]olor [b]g [l]ight [n]ight ... │
+│  [a] add  [e/<CR>] edit  [d/x] delete  [c] default... │
+│  [l] light override  [n] dark override  ...           │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -114,14 +119,31 @@ Run `:ColorfulTimes` to open the interactive manager.
 | `?` | Show help |
 | `q` / `Esc` | Close TUI |
 
+### Theme Resolution Order
+
+Colorful Times resolves the active theme in this order:
+
+1. Matching schedule entry
+2. `default.background`
+3. `default.colorscheme` or `default.themes.light` / `default.themes.dark`
+
+If the resolved background is `system`, the plugin keeps a safe fallback first
+and then updates to the detected light or dark background asynchronously.
+
 ## System Background Detection
 
 The plugin detects your system appearance based on your OS environment.
 
-* **macOS**: Automatically detects appearance using `osascript` as the primary method, with a `defaults read` fallback.
-* **Linux**: Auto-detects KDE and GNOME environments via `kreadconfig5`/`kreadconfig6` or `gsettings`.
-* **Custom script**: Set `system_background_detection_script` to an absolute path pointing to a script that exits 0 for dark mode and 1 for light mode.
-* **Custom function**: Set `system_background_detection` to a Lua function that returns `"dark"` or `"light"`.
+Priority order:
+
+1. `system_background_detection` as a Lua function override
+2. `system_background_detection` as a command table override
+3. macOS auto-detection via `osascript`, with `defaults read` fallback
+4. Linux custom script via `system_background_detection_script`
+5. Linux KDE/GNOME auto-detection via `kreadconfig5`/`kreadconfig6` or `gsettings`
+
+The function and command overrides work on any platform. The custom script is
+Linux-only.
 
 ## Troubleshooting
 
@@ -151,6 +173,8 @@ local ct = require("colorful-times")
 ct.setup({ ... })
 
 -- Toggle the plugin enabled/disabled state
+ct.enable()
+ct.disable()
 ct.toggle()
 
 -- Reload the configuration and re-apply colorschemes
@@ -158,6 +182,9 @@ ct.reload()
 
 -- Open the schedule manager TUI
 ct.open()
+
+-- Inspect the current resolved state
+ct.status()
 ```
 
 ## Performance

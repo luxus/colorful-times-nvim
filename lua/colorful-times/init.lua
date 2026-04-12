@@ -49,7 +49,16 @@ M.config = {
 
 -- Lazy-load core on first access - use static lookup for O(1) check
 local _loaded = false
-local _lazy_keys = { setup = true, toggle = true, reload = true, open = true, apply_colorscheme = true }
+local _lazy_keys = {
+  setup = true,
+  enable = true,
+  disable = true,
+  toggle = true,
+  reload = true,
+  open = true,
+  status = true,
+  apply_colorscheme = true,
+}
 
 local function ensure_loaded()
   if not _loaded then

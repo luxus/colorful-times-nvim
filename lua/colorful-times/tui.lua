@@ -7,7 +7,6 @@ local ct = require("colorful-times")
 local sched = require("colorful-times.schedule")
 
 local VERSION = "2.2.0"
-local MAX_COLORSCHEMES = 200
 
 -- ─── State ───────────────────────────────────────────────────────────────────
 local _buf, _win, _cursor = nil, nil, 1
@@ -15,7 +14,7 @@ local NS = api.nvim_create_namespace("colorful_times_tui")
 
 -- ─── Layout ───────────────────────────────────────────────────────────────────
 local COLS = { 7, 7, 30, 8 }  -- START STOP COLORSCHEME BG
-local HEADER_LINES = 8
+local HEADER_LINES = 9
 local SEP = string.rep("─", vim.iter(COLS):fold(9, function(a, b) return a + b end))
 
 -- ─── Snacks Detection ───────────────────────────────────────────────────────
@@ -33,7 +32,6 @@ local function get_cached_schemes()
   if not _cached_schemes then
     _cached_schemes = vim.iter(vim.fn.getcompletion("", "color"))
       :filter(function(s) return s ~= "" end)
-      :take(MAX_COLORSCHEMES)
       :totable()
   end
   return _cached_schemes
@@ -107,6 +105,7 @@ local function get_static_header(enabled)
         string.format("  DEFAULT  %-30s BG %-8s", pad(ct.config.default.colorscheme, 30), pad(ct.config.default.background, 8)),
         string.format("  LIGHT    %-30s", pad(display_theme(ct.config.default.themes.light), 30)),
         string.format("  DARK     %-30s", pad(display_theme(ct.config.default.themes.dark), 30)),
+        "  ORDER    schedule > default.background > default theme override",
         SEP,
         string.format("  %s%s%s%s", pad("START", COLS[1]), pad("STOP", COLS[2]), pad("COLORSCHEME", COLS[3]), pad("BG", COLS[4])),
         SEP,
@@ -139,7 +138,8 @@ local function render()
   
   -- Footer (static, but keep inline for clarity)
   table.insert(lines, SEP)
-  table.insert(lines, "  [a]dd [e]dit [d]el [c]olor [b]g [l]ight [n]ight [t]oggle [r]eload [?]help [q]uit")
+  table.insert(lines, "  [a] add  [e/<CR>] edit  [d/x] delete  [c] default scheme  [b] default bg")
+  table.insert(lines, "  [l] light override  [n] dark override  [t] toggle  [r] reload  [?] help  [q] quit")
   
   api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
   vim.bo[_buf].modifiable = false
@@ -349,9 +349,10 @@ end
 local function action_help()
   vim.notify(table.concat({
     "colorful-times keys:",
-    "  j/↓ move  k/↑ move  a add  e/Enter edit  d/x del",
-    "  c default colorscheme  b default background  l light theme  n night theme",
-    "  t toggle  r reload  q/Esc quit",
+    "  j/↓ move  k/↑ move  a add  e/Enter edit  d/x delete",
+    "  c default colorscheme  b default background",
+    "  l light override  n dark override  t toggle  r reload  q/Esc quit",
+    "  resolution order: schedule entry > default.background > default theme override",
   }, "\n"), vim.log.levels.INFO)
 end
 
@@ -379,7 +380,9 @@ function M.open()
     "nofile", "wipe", "colorful-times", false
   
   local ui = api.nvim_list_uis()[1]
-  local width, height = math.floor(ui.width * 0.6), math.min(math.max(10, #ct.config.schedule + 6), math.floor(ui.height * 0.8))
+  local width = math.floor(ui.width * 0.6)
+  local content_height = HEADER_LINES + math.max(1, #ct.config.schedule) + 3
+  local height = math.min(math.max(12, content_height), math.floor(ui.height * 0.8))
   
   _win = api.nvim_open_win(_buf, true, {
     relative = "editor", width = width, height = height,

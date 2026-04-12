@@ -17,6 +17,7 @@ local _focused = true
 local _augroup = vim.api.nvim_create_augroup("ColorfulTimes", { clear = true })
 local _parsed_schedule = nil  -- Cache for preprocessed schedule
 local _base_config = nil      -- User config before persisted state is merged
+local _poll_inflight = false
 
 -- Static validation lookup tables
 local VALID_BACKGROUNDS = { light = true, dark = true, system = true }
@@ -48,29 +49,50 @@ end
 -- ─── Theme Resolution ────────────────────────────────────────────────────────
 
 ---Resolve current theme based on config and schedule
----@return string colorscheme
----@return string background
----@return boolean use_default_theme_overrides
-function M.resolve_theme()
+---@return table
+local function resolve_theme_context()
   local cfg = M.config
   if not cfg.enabled then
     local bg = cfg.default.background
     local cs = bg ~= "system" and cfg.default.themes[bg] or cfg.default.colorscheme
-    return cs or cfg.default.colorscheme, bg, true
+    return {
+      source = "default",
+      colorscheme = cs or cfg.default.colorscheme,
+      background = bg,
+      use_default_theme_overrides = true,
+    }
   end
-  
-  -- Use cached parsed schedule for better performance
+
   local current_mins = now_mins()
   _parsed_schedule = _parsed_schedule or schedule.preprocess(cfg.schedule, cfg.default.background)
   local active = schedule.get_active_entry(_parsed_schedule, current_mins)
-  
+
   if active then
-    return active.colorscheme, active.background, false
+    return {
+      source = "schedule",
+      colorscheme = active.colorscheme,
+      background = active.background,
+      use_default_theme_overrides = false,
+    }
   end
-  
+
   local bg = cfg.default.background
   local cs = bg ~= "system" and cfg.default.themes[bg] or cfg.default.colorscheme
-  return cs or cfg.default.colorscheme, bg, true
+  return {
+    source = "default",
+    colorscheme = cs or cfg.default.colorscheme,
+    background = bg,
+    use_default_theme_overrides = true,
+  }
+end
+
+---Resolve current theme based on config and schedule
+---@return string colorscheme
+---@return string background
+---@return boolean use_default_theme_overrides
+function M.resolve_theme()
+  local resolved = resolve_theme_context()
+  return resolved.colorscheme, resolved.background, resolved.use_default_theme_overrides
 end
 
 ---Apply colorscheme and background synchronously
@@ -118,6 +140,46 @@ function M.apply_colorscheme()
       vim.schedule(function() apply_sync(real_cs, detected) end)
     end
   end, fallback)
+end
+
+---@class ColorfulTimes.Status
+---@field enabled boolean
+---@field persist boolean
+---@field source string
+---@field colorscheme string
+---@field background string
+---@field requested_background string
+---@field schedule_entries integer
+---@field refresh_time integer
+---@field detection ColorfulTimes.DetectionInfo
+
+---Describe the current resolved theme state for status/reporting.
+---@return ColorfulTimes.Status
+function M.status()
+  local resolved = resolve_theme_context()
+  local effective_bg = resolved.background
+  local effective_cs = resolved.colorscheme
+
+  if resolved.background == "system" then
+    effective_bg = _previous_bg or vim.o.background or "dark"
+    effective_cs = resolve_detected_colorscheme(
+      resolved.colorscheme,
+      effective_bg,
+      resolved.use_default_theme_overrides
+    )
+  end
+
+  return {
+    enabled = M.config.enabled,
+    persist = M.config.persist,
+    source = resolved.source,
+    colorscheme = effective_cs,
+    background = effective_bg,
+    requested_background = resolved.background,
+    schedule_entries = #M.config.schedule,
+    refresh_time = M.config.refresh_time,
+    detection = system.detection_info(),
+  }
 end
 
 ---Build the subset of config that is safe to persist.
@@ -199,6 +261,7 @@ end
 ---Start the system background poll timer
 local function start_poll_timer()
   stop_timer(_timers.poll)
+  _poll_inflight = false
   
   if not needs_system_poll() then return end
   if not system.has_detection() then return end
@@ -207,7 +270,11 @@ local function start_poll_timer()
   _timers.poll = uv.new_timer()
   _timers.poll:start(0, M.config.refresh_time, function()
     if not _focused then return end
+    if _poll_inflight then return end
+
+    _poll_inflight = true
     system.get_background(function(bg)
+      _poll_inflight = false
       if bg ~= _previous_bg then M.apply_colorscheme() end
     end, fallback)
   end)
@@ -216,6 +283,13 @@ end
 -- ─── Enable / Disable ──────────────────────────────────────────────────────────
 
 function M.enable()
+  local changed = not M.config.enabled
+  M.config.enabled = true
+  if changed then
+    M.save_state()
+  end
+
+  stop_all_timers()
   M.apply_colorscheme()
   arm_schedule_timer()
   start_poll_timer()
@@ -223,21 +297,30 @@ function M.enable()
 end
 
 function M.disable()
+  local changed = M.config.enabled
+  M.config.enabled = false
+  if changed then
+    M.save_state()
+  end
+
   stop_all_timers()
   M.apply_colorscheme()  -- Apply with enabled=false for default
   vim.notify("colorful-times: disabled", vim.log.levels.INFO)
 end
 
 function M.toggle()
-  M.config.enabled = not M.config.enabled
-  M.save_state()
-  if M.config.enabled then M.enable() else M.disable() end
+  if M.config.enabled then
+    M.disable()
+  else
+    M.enable()
+  end
 end
 
 function M.reload()
   stop_all_timers()
   _previous_bg = nil
   _parsed_schedule = nil  -- Clear schedule cache
+  _poll_inflight = false
 
   if _base_config then
     M.config = vim.deepcopy(_base_config)
@@ -332,6 +415,7 @@ function M.setup(opts)
   _base_config = vim.deepcopy(M.config)
 
   -- Register focus autocmds unconditionally (toggle needs them later)
+  vim.api.nvim_clear_autocmds({ group = _augroup })
   vim.api.nvim_create_autocmd("FocusLost", {
     group = _augroup,
     callback = function() _focused = false end,
