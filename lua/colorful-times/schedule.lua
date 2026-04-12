@@ -5,9 +5,8 @@ local M = {}
 
 local MINUTES_PER_DAY = 1440
 
--- Optimized LRU cache for parse_time (max 50 entries - time strings are limited)
+-- Deterministic memo cache for parse_time (time strings are a tiny input space)
 local _time_cache = {}
-local _CACHE_LIMIT = 50
 local _CACHE_NIL = {}  -- Sentinel for cached nil values
 
 -- Static lookup for valid backgrounds
@@ -19,9 +18,13 @@ local _next_change_cache_time = nil
 local _next_change_cache_result = nil
 
 ---Parse HH:MM time string to minutes since midnight
----@param str string
+---@param str unknown
 ---@return integer|nil
 function M.parse_time(str)
+  if type(str) ~= "string" then
+    return nil
+  end
+
   -- Fast path: check cache first (handles both hits and nil-sentinel misses)
   local cached = _time_cache[str]
   if cached ~= nil then
@@ -43,51 +46,53 @@ function M.parse_time(str)
   end
   
   local result = hour * 60 + min
-  
-  -- LRU eviction: only remove oldest when at limit (rare for time strings)
-  -- Time strings have max 1440 unique values (24h * 60m), but typically <10 used
-  local cache_size = 0
-  for _ in pairs(_time_cache) do cache_size = cache_size + 1 end
-  if cache_size >= _CACHE_LIMIT then
-    -- Find and remove first entry (oldest in insertion order)
-    for k in pairs(_time_cache) do
-      _time_cache[k] = nil
-      break
-    end
-  end
-  
   _time_cache[str] = result
   return result
 end
 
 ---Validate a schedule entry
----@param entry table
+---@param entry unknown
 ---@return boolean ok
 ---@return string? error
 function M.validate_entry(entry)
-  if not entry.colorscheme or entry.colorscheme == "" then
+  if type(entry) ~= "table" then
+    return false, "entry must be a table"
+  end
+
+  if type(entry.colorscheme) ~= "string" or entry.colorscheme == "" then
     return false, "missing colorscheme"
   end
-  if not M.parse_time(entry.start or "") then
+
+  if type(entry.start) ~= "string" or not M.parse_time(entry.start) then
     return false, "invalid start time: " .. tostring(entry.start)
   end
-  if not M.parse_time(entry.stop or "") then
+
+  if type(entry.stop) ~= "string" or not M.parse_time(entry.stop) then
     return false, "invalid stop time: " .. tostring(entry.stop)
   end
+
   if M.parse_time(entry.start) == M.parse_time(entry.stop) then
     return false, "start and stop times must differ: " .. tostring(entry.start)
   end
-  if entry.background and not VALID_BACKGROUNDS[entry.background] then
-    return false, "invalid background: " .. entry.background
+
+  if entry.background ~= nil then
+    if type(entry.background) ~= "string" or not VALID_BACKGROUNDS[entry.background] then
+      return false, "invalid background: " .. tostring(entry.background)
+    end
   end
+
   return true
 end
 
 ---Preprocess raw schedule into parsed entries with optimized boundary table
----@param raw table[]
+---@param raw unknown
 ---@param default_bg string
 ---@return ColorfulTimes.ParsedEntry[]
 function M.preprocess(raw, default_bg)
+  if type(raw) ~= "table" then
+    return {}
+  end
+
   local result = {}
   local boundaries_set = {}  -- For deduplication
   

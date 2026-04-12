@@ -182,31 +182,33 @@ end)
 describe("core.resolve_theme wall clock", function()
   local core
   local plugin
+  local orig_os_date
 
   before_each(function()
     package.loaded["colorful-times.core"] = nil
     package.loaded["colorful-times"] = nil
     core = require("colorful-times.core")
     plugin = require("colorful-times")
+    orig_os_date = os.date
   end)
 
   after_each(function()
+    os.date = orig_os_date
     package.loaded["colorful-times.core"] = nil
     package.loaded["colorful-times"] = nil
   end)
 
   it("resolves the active schedule entry using wall-clock time", function()
-    local now = os.date("*t")
-    local current = now.hour * 60 + now.min
-    local start = (current - 1) % 1440
-    local stop = (current + 1) % 1440
+    os.date = function()
+      return { hour = 12, min = 0 }
+    end
 
     plugin.config.enabled = true
     plugin.config.default.background = "dark"
     plugin.config.schedule = {
       {
-        start = string.format("%02d:%02d", math.floor(start / 60), start % 60),
-        stop = string.format("%02d:%02d", math.floor(stop / 60), stop % 60),
+        start = "11:59",
+        stop = "12:01",
         colorscheme = "wall-clock-theme",
         background = "light",
       },
@@ -218,10 +220,9 @@ describe("core.resolve_theme wall clock", function()
   end)
 
   it("keeps an explicit schedule colorscheme when the schedule entry uses system background", function()
-    local now = os.date("*t")
-    local current = now.hour * 60 + now.min
-    local start = (current - 1) % 1440
-    local stop = (current + 1) % 1440
+    os.date = function()
+      return { hour = 22, min = 30 }
+    end
 
     plugin.config.enabled = true
     plugin.config.default.background = "system"
@@ -232,8 +233,8 @@ describe("core.resolve_theme wall clock", function()
     }
     plugin.config.schedule = {
       {
-        start = string.format("%02d:%02d", math.floor(start / 60), start % 60),
-        stop = string.format("%02d:%02d", math.floor(stop / 60), stop % 60),
+        start = "22:29",
+        stop = "22:31",
         colorscheme = "scheduled-system-theme",
         background = "system",
       },
@@ -253,6 +254,7 @@ describe("core.setup regression coverage", function()
   local orig_notify
   local orig_defer_fn
   local orig_save
+  local orig_os_date
 
   before_each(function()
     package.loaded["colorful-times.core"] = nil
@@ -264,12 +266,14 @@ describe("core.setup regression coverage", function()
     orig_notify = vim.notify
     orig_defer_fn = vim.defer_fn
     orig_save = state.save
+    orig_os_date = os.date
   end)
 
   after_each(function()
     vim.notify = orig_notify
     vim.defer_fn = orig_defer_fn
     state.save = orig_save
+    os.date = orig_os_date
     vim.api.nvim_clear_autocmds({ group = "ColorfulTimes" })
     package.loaded["colorful-times.core"] = nil
     package.loaded["colorful-times"] = nil
@@ -424,5 +428,136 @@ describe("core.setup regression coverage", function()
     assert.are.equal("day-theme", saved.default.themes.light)
     assert.are.equal("night-theme", saved.default.themes.dark)
     assert.are.equal("day", saved.schedule[1].colorscheme)
+  end)
+
+  it("enables and disables directly while persisting the new state", function()
+    local saved = {}
+
+    state.save = function(data)
+      saved[#saved + 1] = vim.deepcopy(data)
+    end
+
+    plugin.config.enabled = false
+    plugin.config.persist = true
+    plugin.config.default.background = "dark"
+    plugin.config.default.colorscheme = "default-theme"
+    plugin.config.schedule = {}
+
+    core.enable()
+    core.disable()
+
+    assert.is_true(saved[1].enabled)
+    assert.is_false(saved[2].enabled)
+  end)
+
+  it("reports resolved status information", function()
+    plugin.config.enabled = true
+    plugin.config.persist = true
+    plugin.config.refresh_time = 5000
+    plugin.config.default = {
+      colorscheme = "base-theme",
+      background = "system",
+      themes = {
+        light = "day-theme",
+        dark = "night-theme",
+      },
+    }
+    plugin.config.schedule = {}
+
+    os.date = function()
+      return { hour = 9, min = 0 }
+    end
+
+    vim.o.background = "light"
+    local status = core.status()
+
+    assert.is_true(status.enabled)
+    assert.is_true(status.persist)
+    assert.are.equal("default", status.source)
+    assert.are.equal("system", status.requested_background)
+    assert.are.equal("light", status.background)
+    assert.are.equal("day-theme", status.colorscheme)
+  end)
+end)
+
+describe("core polling hardening", function()
+  local orig_defer_fn
+  local orig_new_timer
+  local poll_callback
+  local detection_callback
+  local get_background_calls
+
+  before_each(function()
+    package.loaded["colorful-times.core"] = nil
+    package.loaded["colorful-times"] = nil
+    package.loaded["colorful-times.system"] = nil
+
+    orig_defer_fn = vim.defer_fn
+    vim.defer_fn = function(fn)
+      fn()
+    end
+
+    orig_new_timer = vim.uv.new_timer
+    vim.uv.new_timer = function()
+      local timer = {}
+      function timer:start(_, _, cb)
+        poll_callback = cb
+      end
+      function timer:stop() end
+      function timer:close() end
+      function timer:is_closing()
+        return false
+      end
+      return timer
+    end
+
+    local system = require("colorful-times.system")
+    get_background_calls = 0
+    system.has_detection = function()
+      return true
+    end
+    system.get_background = function(cb)
+      get_background_calls = get_background_calls + 1
+      detection_callback = cb
+    end
+  end)
+
+  after_each(function()
+    vim.defer_fn = orig_defer_fn
+    vim.uv.new_timer = orig_new_timer
+    vim.api.nvim_clear_autocmds({ group = "ColorfulTimes" })
+    package.loaded["colorful-times.core"] = nil
+    package.loaded["colorful-times"] = nil
+    package.loaded["colorful-times.system"] = nil
+  end)
+
+  it("does not start overlapping poll detections", function()
+    local core = require("colorful-times.core")
+    local plugin = require("colorful-times")
+
+    plugin.config.enabled = true
+    plugin.config.persist = false
+    plugin.config.refresh_time = 5000
+    plugin.config.default = {
+      colorscheme = "base-theme",
+      background = "system",
+      themes = { light = nil, dark = nil },
+    }
+    plugin.config.schedule = {}
+
+    core.setup(plugin.config)
+    detection_callback("dark") -- finish initial apply_colorscheme detection
+
+    assert.is_function(poll_callback)
+
+    poll_callback()
+    assert.are.equal(2, get_background_calls)
+
+    poll_callback()
+    assert.are.equal(2, get_background_calls)
+
+    detection_callback("light")
+    poll_callback()
+    assert.are.equal(4, get_background_calls)
   end)
 end)
