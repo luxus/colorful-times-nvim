@@ -232,6 +232,41 @@ local function spawn(cmd, args, callback)
   end)
 end
 
+---@param cb fun(bg: "light"|"dark")
+---@param fallback "light"|"dark"
+local function detect_linux_kde(cb, fallback)
+  local reader
+  if vim.fn.executable("kreadconfig6") == 1 then
+    reader = "kreadconfig6"
+  elseif vim.fn.executable("kreadconfig5") == 1 then
+    reader = "kreadconfig5"
+  end
+
+  if not reader then
+    vim.schedule(function() cb(fallback) end)
+    return
+  end
+
+  spawn_capture(reader, { "--group", "General", "--key", "ColorScheme", "--file", "kdeglobals" }, function(code, out)
+    local is_dark = code == 0 and out:find("Dark", 1, true) ~= nil
+    vim.schedule(function() cb(is_dark and "dark" or "light") end)
+  end)
+end
+
+---@param cb fun(bg: "light"|"dark")
+---@param fallback "light"|"dark"
+local function detect_linux_gnome(cb, fallback)
+  if vim.fn.executable("gsettings") ~= 1 then
+    vim.schedule(function() cb(fallback) end)
+    return
+  end
+
+  spawn_capture("gsettings", { "get", "org.gnome.desktop.interface", "color-scheme" }, function(code, out)
+    local is_dark = code == 0 and out:find("prefer-dark", 1, true) ~= nil
+    vim.schedule(function() cb(is_dark and "dark" or "light") end)
+  end)
+end
+
 -- ─── Darwin Single-Flight Detector ──────────────────────────────────────────
 
 local _last_bg
@@ -323,7 +358,7 @@ local function _detect_darwin(cb, fallback)
   end)
 end
 
--- ─── Public API ──────────────────────────────────────────────────────────────
+-- ─── Public API ─────────────────────────────────────────────────────────────
 
 ---Detect system background asynchronously
 ---@param cb fun(bg: "light"|"dark")
@@ -387,24 +422,12 @@ function M.get_background(cb, fallback)
       spawn(script, {}, function(code)
         vim.schedule(function() cb(code == 0 and "dark" or "light") end)
       end)
+    elseif is_kde() then
+      detect_linux_kde(cb, fallback)
+    elseif is_gnome() then
+      detect_linux_gnome(cb, fallback)
     else
-      -- Auto-detect KDE/GNOME
-      spawn("sh", { "-c", [[
-        if [ "$XDG_CURRENT_DESKTOP" = "KDE" ] || [ "$XDG_SESSION_DESKTOP" = "KDE" ]; then
-          if command -v kreadconfig6 &>/dev/null; then
-            kreadconfig6 --group General --key ColorScheme --file kdeglobals | grep -q Dark && exit 0
-          elif command -v kreadconfig5 &>/dev/null; then
-            kreadconfig5 --group General --key ColorScheme --file kdeglobals | grep -q Dark && exit 0
-          fi
-          exit 1
-        elif [ "$XDG_CURRENT_DESKTOP" = "GNOME" ] || [ "$XDG_SESSION_DESKTOP" = "GNOME" ]; then
-          gsettings get org.gnome.desktop.interface color-scheme 2>/dev/null | grep -q prefer-dark && exit 0
-          exit 1
-        fi
-        exit 1
-      ]] }, function(code)
-        vim.schedule(function() cb(code == 0 and "dark" or "light") end)
-      end)
+      vim.schedule(function() cb(fallback) end)
     end
     return
   end

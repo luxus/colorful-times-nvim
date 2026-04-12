@@ -283,7 +283,7 @@ start_poll_timer = function()
   end)
 end
 
--- ─── Enable / Disable ──────────────────────────────────────────────────────────
+-- ─── Enable / Disable ────────────────────────────────────────────────────────
 
 function M.enable()
   local changed = not M.config.enabled
@@ -436,16 +436,15 @@ function M.setup(opts)
     end,
   })
 
-  if not M.config.enabled then return end
-
   vim.defer_fn(function()
     load_persisted_state()
+    if not M.config.enabled then
+      return
+    end
 
     M.apply_colorscheme()
-    if M.config.enabled then
-      arm_schedule_timer()
-      start_poll_timer()
-    end
+    arm_schedule_timer()
+    start_poll_timer()
   end, 0)
 end
 
