@@ -62,15 +62,15 @@ function M.validate_state(data)
   if type(data) ~= "table" then
     return false, "state must be a table"
   end
-  
+
   if data.enabled ~= nil and type(data.enabled) ~= "boolean" then
     return false, "enabled must be a boolean"
   end
-  
+
   if data.persist ~= nil and type(data.persist) ~= "boolean" then
     return false, "persist must be a boolean"
   end
-  
+
   if data.schedule ~= nil then
     if type(data.schedule) ~= "table" then
       return false, "schedule must be an array"
@@ -90,7 +90,7 @@ function M.validate_state(data)
       end
     end
   end
-  
+
   if data.refresh_time ~= nil then
     if type(data.refresh_time) ~= "number" then
       return false, "refresh_time must be a number"
@@ -102,7 +102,7 @@ function M.validate_state(data)
       return false, "refresh_time must be an integer"
     end
   end
-  
+
   if data.default ~= nil then
     if type(data.default) ~= "table" then
       return false, "default must be a table"
@@ -127,7 +127,7 @@ function M.validate_state(data)
       end
     end
   end
-  
+
   return true, nil
 end
 
@@ -141,44 +141,44 @@ M.validate = M.validate_state
 local function backup_corrupted(path)
   local timestamp = tostring(os.time()) .. "_" .. tostring(math.random(1000, 9999))
   local backup_path = path .. ".bak." .. timestamp
-  
+
   -- Try rename first (atomic)
   local ok = uv.fs_rename(path, backup_path)
   if ok then
     vim.notify("colorful-times: corrupted state backed up to " .. backup_path, vim.log.levels.WARN)
     return backup_path, true
   end
-  
+
   -- Fallback: copy + delete
   local src_fd = uv.fs_open(path, uv.constants.O_RDONLY, 0)
   if not src_fd then
     vim.notify("colorful-times: failed to backup corrupted state", vim.log.levels.ERROR)
     return backup_path, false
   end
-  
+
   local stat = uv.fs_fstat(src_fd)
   if not stat then
     uv.fs_close(src_fd)
     return backup_path, false
   end
-  
+
   local content = uv.fs_read(src_fd, stat.size, 0)
   uv.fs_close(src_fd)
-  
+
   if not content then
     return backup_path, false
   end
-  
+
   local flags = bit.bor(uv.constants.O_WRONLY, uv.constants.O_CREAT, uv.constants.O_TRUNC)
   local dst_fd = uv.fs_open(backup_path, flags, tonumber("644", 8))
   if not dst_fd then
     return backup_path, false
   end
-  
+
   uv.fs_write(dst_fd, content, 0)
   uv.fs_close(dst_fd)
   uv.fs_unlink(path)
-  
+
   vim.notify("colorful-times: corrupted state backed up to " .. backup_path, vim.log.levels.WARN)
   return backup_path, true
 end
@@ -196,24 +196,24 @@ function M.load()
     end
     return {}
   end
-  
+
   local stat = uv.fs_fstat(fd)
   if not stat then
     uv.fs_close(fd)
     return {}
   end
-  
+
   local content = uv.fs_read(fd, stat.size, 0)
   uv.fs_close(fd)
-  
+
   if not content or content == "" then return {} end
-  
+
   local ok, result = pcall(vim.json.decode, content)
   if not ok or type(result) ~= "table" then
     backup_corrupted(path)
     return {}
   end
-  
+
   return result
 end
 
@@ -270,15 +270,15 @@ end
 ---@return table
 function M.merge(config, stored)
   local result = vim.deepcopy(config)
-  
+
   for _, key in ipairs({ "enabled", "schedule", "refresh_time", "persist" }) do
     if stored[key] ~= nil then result[key] = stored[key] end
   end
-  
+
   if stored.default ~= nil and type(stored.default) == "table" then
     result.default = vim.tbl_deep_extend("force", result.default or {}, stored.default)
   end
-  
+
   return result
 end
 

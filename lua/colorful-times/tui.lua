@@ -118,13 +118,13 @@ end
 -- ─── Rendering ───────────────────────────────────────────────────────────────
 local function render()
   if not (_buf and api.nvim_buf_is_valid(_buf)) then return end
-  
+
   vim.bo[_buf].modifiable = true
   api.nvim_buf_clear_namespace(_buf, NS, 0, -1)
-  
+
   -- Start with cached static header
   local lines = { unpack(get_static_header(ct.config.enabled)) }
-  
+
   local schedule = ct.config.schedule
   if #schedule == 0 then
     table.insert(lines, "  (no entries — press [a] to add)")
@@ -135,15 +135,15 @@ local function render()
         pad(entry.colorscheme, COLS[3]), pad(entry.background or "—", COLS[4])))
     end
   end
-  
+
   -- Footer (static, but keep inline for clarity)
   table.insert(lines, SEP)
   table.insert(lines, "  [a] add  [e/<CR>] edit  [d/x] delete  [c] default scheme  [b] default bg")
   table.insert(lines, "  [l] light override  [n] dark override  [t] toggle  [r] reload  [?] help  [q] quit")
-  
+
   api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
   vim.bo[_buf].modifiable = false
-  
+
   -- Highlight selected row
   if #schedule > 0 then
     api.nvim_buf_add_highlight(_buf, NS, "Visual", HEADER_LINES + _cursor - 1, 0, -1)
@@ -165,7 +165,7 @@ local function prompt_time(prompt, default, cb)
         ask()
       end
     end
-    
+
     if has_snacks() then
       require("snacks").input({ prompt = prompt, default = default or "" }, focus_then(handler))
     else
@@ -261,7 +261,7 @@ end
 local function action_add()
   local current_cs = vim.g.colors_name or ct.config.default.colorscheme
   local current_bg = vim.o.background or ct.config.default.background
-  
+
   prompt_time("Start time (HH:MM)", nil, function(start)
     if not start then return end
     prompt_time("Stop time (HH:MM)", nil, function(stop)
@@ -374,30 +374,30 @@ function M.open()
     api.nvim_set_current_win(_win)
     return
   end
-  
+
   _buf = api.nvim_create_buf(false, true)
   vim.bo[_buf].buftype, vim.bo[_buf].bufhidden, vim.bo[_buf].filetype, vim.bo[_buf].modifiable =
     "nofile", "wipe", "colorful-times", false
-  
+
   local ui = api.nvim_list_uis()[1]
   local width = math.floor(ui.width * 0.6)
   local content_height = HEADER_LINES + math.max(1, #ct.config.schedule) + 3
   local height = math.min(math.max(12, content_height), math.floor(ui.height * 0.8))
-  
+
   _win = api.nvim_open_win(_buf, true, {
     relative = "editor", width = width, height = height,
     row = math.floor((ui.height - height) / 2), col = math.floor((ui.width - width) / 2),
     style = "minimal", border = "rounded",
     title = " Colorful Times ", title_pos = "center",
   })
-  
+
   _cursor = math.max(1, math.min(_cursor, math.max(1, #ct.config.schedule)))
-  
+
   -- Keymaps
   local function map(key, fn)
     vim.keymap.set("n", key, fn, { buffer = _buf, nowait = true, silent = true })
   end
-  
+
   map("j", function() cursor_move(1) end)
   map("<Down>", function() cursor_move(1) end)
   map("k", function() cursor_move(-1) end)
@@ -416,7 +416,7 @@ function M.open()
   map("?", action_help)
   map("q", close)
   map("<Esc>", close)
-  
+
   render()
 end
 

@@ -99,7 +99,7 @@ describe("system.get_background with system_background_detection_script", functi
     if tmpdir then
       local handle = uv.fs_scandir(tmpdir)
       while handle do
-        local name, typ = uv.fs_scandir_next(handle)
+        local name = uv.fs_scandir_next(handle)
         if not name then break end
         uv.fs_unlink(tmpdir .. "/" .. name)
       end
