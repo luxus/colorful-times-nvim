@@ -81,6 +81,17 @@ function M.validate_state(data)
     if data.default.colorscheme ~= nil and type(data.default.colorscheme) ~= "string" then
       return false, "default.colorscheme must be a string"
     end
+    if data.default.themes ~= nil then
+      if type(data.default.themes) ~= "table" then
+        return false, "default.themes must be a table"
+      end
+      for _, key in ipairs({ "light", "dark" }) do
+        local theme = data.default.themes[key]
+        if theme ~= nil and type(theme) ~= "string" then
+          return false, "default.themes." .. key .. " must be a string"
+        end
+      end
+    end
   end
   
   return true, nil

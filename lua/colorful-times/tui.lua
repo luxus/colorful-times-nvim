@@ -6,7 +6,7 @@ local api = vim.api
 local ct = require("colorful-times")
 local sched = require("colorful-times.schedule")
 
-local VERSION = "2.1.0"
+local VERSION = "2.2.0"
 local MAX_COLORSCHEMES = 200
 
 -- ─── State ───────────────────────────────────────────────────────────────────
@@ -15,7 +15,7 @@ local NS = api.nvim_create_namespace("colorful_times_tui")
 
 -- ─── Layout ───────────────────────────────────────────────────────────────────
 local COLS = { 7, 7, 30, 8 }  -- START STOP COLORSCHEME BG
-local HEADER_LINES = 4
+local HEADER_LINES = 8
 local SEP = string.rep("─", vim.iter(COLS):fold(9, function(a, b) return a + b end))
 
 -- ─── Snacks Detection ───────────────────────────────────────────────────────
@@ -39,25 +39,59 @@ local function get_cached_schemes()
   return _cached_schemes
 end
 
--- ─── Debounced Save Timer ───────────────────────────────────────────────────
-local _save_timer = nil
-local DEBOUNCE_MS = 500  -- Delay saves by 500ms to batch rapid changes
-
 -- ─── Formatting ───────────────────────────────────────────────────────────────
 local function pad(str, width)
   str = tostring(str or "")
   return #str >= width and str:sub(1, width - 1) .. " " or str .. string.rep(" ", width - #str)
 end
 
+---@param value? string
+---@return string
+local function display_theme(value)
+  return value and value ~= "" and value or "(use fallback)"
+end
+
+---@param bg? string
+---@return integer
+local function background_index(bg)
+  if bg == "light" then
+    return 1
+  end
+  if bg == "dark" then
+    return 2
+  end
+  return 3
+end
+
+---@param title string
+---@param default? string
+---@param cb fun(bg: string|nil)
+local function pick_background(title, default, cb)
+  vim.ui.select({ "light", "dark", "system" }, {
+    prompt = title .. ": ",
+    default = background_index(default),
+  }, cb)
+end
+
 -- ─── Static Header Cache ─────────────────────────────────────────────────────
 local _static_header = nil
 local function get_static_header(enabled)
-  local cache_key = enabled and "enabled" or "disabled"
+  local cache_key = table.concat({
+    enabled and "enabled" or "disabled",
+    ct.config.default.colorscheme or "",
+    ct.config.default.background or "",
+    ct.config.default.themes.light or "",
+    ct.config.default.themes.dark or "",
+  }, "\n")
   if not _static_header or _static_header.key ~= cache_key then
     _static_header = {
       key = cache_key,
       lines = {
         enabled and "  [●] ENABLED  " .. VERSION or "  [○] DISABLED " .. VERSION,
+        SEP,
+        string.format("  DEFAULT  %-30s BG %-8s", pad(ct.config.default.colorscheme, 30), pad(ct.config.default.background, 8)),
+        string.format("  LIGHT    %-30s", pad(display_theme(ct.config.default.themes.light), 30)),
+        string.format("  DARK     %-30s", pad(display_theme(ct.config.default.themes.dark), 30)),
         SEP,
         string.format("  %s%s%s%s", pad("START", COLS[1]), pad("STOP", COLS[2]), pad("COLORSCHEME", COLS[3]), pad("BG", COLS[4])),
         SEP,
@@ -90,7 +124,7 @@ local function render()
   
   -- Footer (static, but keep inline for clarity)
   table.insert(lines, SEP)
-  table.insert(lines, "  [a]dd [e]dit [d]el [t]oggle [r]eload [?]help [q]uit")
+  table.insert(lines, "  [a]dd [e]dit [d]el [c]olor [b]g [l]ight [n]ight [t]oggle [r]eload [?]help [q]uit")
   
   api.nvim_buf_set_lines(_buf, 0, -1, false, lines)
   vim.bo[_buf].modifiable = false
@@ -167,6 +201,72 @@ local function pick_colorscheme(default, cb)
   end
 end
 
+---@param label string
+---@param default? string
+---@param cb fun(name: string|nil)
+local function pick_optional_colorscheme(label, default, cb)
+  local original_cs, original_bg = vim.g.colors_name, vim.o.background
+  local clear_label = "(use fallback)"
+  local schemes = { clear_label }
+  vim.list_extend(schemes, get_cached_schemes())
+
+  local function revert()
+    pcall(vim.cmd.colorscheme, original_cs)
+    vim.o.background = original_bg
+  end
+
+  local selected = 1
+  if default then
+    for i = 2, #schemes do
+      if schemes[i] == default then
+        selected = i
+        break
+      end
+    end
+  end
+
+  if has_snacks() then
+    require("snacks").picker.pick({
+      title = label,
+      items = vim.iter(schemes):map(function(s)
+        return {
+          text = s,
+          previewable = s ~= clear_label,
+        }
+      end):totable(),
+      format = "text",
+      selected = selected,
+      on_change = function(_, item)
+        if item and item.text ~= clear_label then
+          pcall(vim.cmd.colorscheme, item.text)
+        end
+      end,
+      confirm = function(picker, item)
+        picker:close()
+        if not item then
+          revert()
+          cb(nil)
+          return
+        end
+        cb(item.text == clear_label and vim.NIL or item.text)
+      end,
+      on_close = revert,
+    })
+    return
+  end
+
+  vim.ui.select(schemes, {
+    prompt = label .. ": ",
+    default = selected,
+  }, function(choice)
+    if not choice then
+      cb(nil)
+      return
+    end
+    cb(choice == clear_label and vim.NIL or choice)
+  end)
+end
+
 ---@param existing? table
 ---@param cb fun(entry: table|nil)
 local function entry_form(existing, cb)
@@ -176,12 +276,7 @@ local function entry_form(existing, cb)
       if not stop then cb(nil); return end
       pick_colorscheme(existing and existing.colorscheme, function(cs)
         if not cs then cb(nil); return end
-        vim.ui.select({ "system", "dark", "light" }, {
-          prompt = "Background: ",
-          -- FIX: Preselect the existing background
-          default = existing and vim.iter({ "system", "dark", "light" })
-            :enumerate():find(function(_, v) return v == existing.background end) or 1 or 1,
-        }, function(bg)
+        pick_background("Background", existing and existing.background, function(bg)
           cb(bg and { start = start, stop = stop, colorscheme = cs, background = bg } or nil)
         end)
       end)
@@ -191,31 +286,13 @@ end
 
 -- ─── Actions ─────────────────────────────────────────────────────────────────
 local function save_and_reload()
-  -- Always reload immediately for responsive UI
-  require("colorful-times.core").reload()
+  local core = require("colorful-times.core")
+  core.save_state()
+  core.reload()
   render()
-  
-  -- Debounce state saves to reduce disk I/O during rapid changes
-  if not ct.config.persist then return end
-  
-  if _save_timer then
-    _save_timer:stop()
-    _save_timer:close()
-  end
-  
-  _save_timer = vim.uv.new_timer()
-  _save_timer:start(DEBOUNCE_MS, 0, function()
-    _save_timer:close()
-    _save_timer = nil
-    require("colorful-times.state").save({
-      enabled = ct.config.enabled,
-      schedule = ct.config.schedule,
-    })
-  end)
 end
 
 local function action_add()
-  -- FIX: Preselect current theme for new entries
   local current_cs = vim.g.colors_name or ct.config.default.colorscheme
   local current_bg = vim.o.background or ct.config.default.background
   
@@ -225,10 +302,7 @@ local function action_add()
       if not stop then return end
       pick_colorscheme(current_cs, function(cs)
         if not cs then return end
-        vim.ui.select({ "system", "dark", "light" }, {
-          prompt = "Background: ",
-          default = current_bg == "light" and 3 or current_bg == "dark" and 2 or 1,
-        }, function(bg)
+        pick_background("Background", current_bg, function(bg)
           if bg then
             table.insert(ct.config.schedule, { start = start, stop = stop, colorscheme = cs, background = bg })
             _cursor = #ct.config.schedule
@@ -264,6 +338,37 @@ local function action_delete()
   end)
 end
 
+local function action_default_colorscheme()
+  pick_colorscheme(ct.config.default.colorscheme, function(cs)
+    if not cs then
+      return
+    end
+    ct.config.default.colorscheme = cs
+    save_and_reload()
+  end)
+end
+
+local function action_default_background()
+  pick_background("Default background", ct.config.default.background, function(bg)
+    if not bg then
+      return
+    end
+    ct.config.default.background = bg
+    save_and_reload()
+  end)
+end
+
+---@param kind "light"|"dark"
+local function action_theme_override(kind)
+  pick_optional_colorscheme(kind == "light" and "Light override" or "Dark override", ct.config.default.themes[kind], function(cs)
+    if cs == nil then
+      return
+    end
+    ct.config.default.themes[kind] = cs == vim.NIL and nil or cs
+    save_and_reload()
+  end)
+end
+
 local function action_toggle()
   require("colorful-times.core").toggle()
   render()
@@ -278,7 +383,9 @@ end
 local function action_help()
   vim.notify(table.concat({
     "colorful-times keys:",
-    "  j/↓ move  k/↑ move  a add  e/Enter edit  d/x del  t toggle  r reload  q/Esc quit",
+    "  j/↓ move  k/↑ move  a add  e/Enter edit  d/x del",
+    "  c default colorscheme  b default background  l light theme  n night theme",
+    "  t toggle  r reload  q/Esc quit",
   }, "\n"), vim.log.levels.INFO)
 end
 
@@ -331,6 +438,10 @@ function M.open()
   map("<CR>", action_edit)
   map("d", action_delete)
   map("x", action_delete)
+  map("c", action_default_colorscheme)
+  map("b", action_default_background)
+  map("l", function() action_theme_override("light") end)
+  map("n", function() action_theme_override("dark") end)
   map("t", action_toggle)
   map("r", action_reload)
   map("?", action_help)

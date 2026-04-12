@@ -216,6 +216,34 @@ describe("core.resolve_theme wall clock", function()
     assert.are.equal("wall-clock-theme", colorscheme)
     assert.are.equal("light", background)
   end)
+
+  it("keeps an explicit schedule colorscheme when the schedule entry uses system background", function()
+    local now = os.date("*t")
+    local current = now.hour * 60 + now.min
+    local start = (current - 1) % 1440
+    local stop = (current + 1) % 1440
+
+    plugin.config.enabled = true
+    plugin.config.default.background = "system"
+    plugin.config.default.colorscheme = "base-theme"
+    plugin.config.default.themes = {
+      light = "base-light",
+      dark = "base-dark",
+    }
+    plugin.config.schedule = {
+      {
+        start = string.format("%02d:%02d", math.floor(start / 60), start % 60),
+        stop = string.format("%02d:%02d", math.floor(stop / 60), stop % 60),
+        colorscheme = "scheduled-system-theme",
+        background = "system",
+      },
+    }
+
+    local colorscheme, background, use_default_overrides = core.resolve_theme()
+    assert.are.equal("scheduled-system-theme", colorscheme)
+    assert.are.equal("system", background)
+    assert.is_false(use_default_overrides)
+  end)
 end)
 
 describe("core.setup regression coverage", function()
@@ -224,6 +252,7 @@ describe("core.setup regression coverage", function()
   local state
   local orig_notify
   local orig_defer_fn
+  local orig_save
 
   before_each(function()
     package.loaded["colorful-times.core"] = nil
@@ -234,11 +263,13 @@ describe("core.setup regression coverage", function()
     state = require("colorful-times.state")
     orig_notify = vim.notify
     orig_defer_fn = vim.defer_fn
+    orig_save = state.save
   end)
 
   after_each(function()
     vim.notify = orig_notify
     vim.defer_fn = orig_defer_fn
+    state.save = orig_save
     vim.api.nvim_clear_autocmds({ group = "ColorfulTimes" })
     package.loaded["colorful-times.core"] = nil
     package.loaded["colorful-times"] = nil
@@ -305,5 +336,93 @@ describe("core.setup regression coverage", function()
 
     state.load = orig_load
     assert.are.equal(0, calls)
+  end)
+
+  it("reload rebuilds config from the persisted state on disk", function()
+    local load_calls = 0
+    local orig_load = state.load
+
+    state.load = function()
+      load_calls = load_calls + 1
+      return {
+        enabled = true,
+        schedule = {
+          { start = "09:00", stop = "17:00", colorscheme = "persisted-theme", background = "light" },
+        },
+        default = {
+          colorscheme = "persisted-default",
+          background = "system",
+          themes = {
+            light = "persisted-light",
+            dark = "persisted-dark",
+          },
+        },
+      }
+    end
+    vim.defer_fn = function(fn)
+      fn()
+    end
+
+    core.setup({
+      enabled = true,
+      persist = true,
+      default = {
+        colorscheme = "base-default",
+        background = "dark",
+        themes = {
+          light = "base-light",
+          dark = "base-dark",
+        },
+      },
+      schedule = {},
+    })
+
+    plugin.config.default.colorscheme = "mutated-default"
+    plugin.config.default.themes.light = "mutated-light"
+    plugin.config.schedule = {
+      { start = "01:00", stop = "02:00", colorscheme = "mutated-schedule", background = "dark" },
+    }
+
+    core.reload()
+
+    state.load = orig_load
+
+    assert.are.equal(2, load_calls)
+    assert.are.equal("persisted-default", plugin.config.default.colorscheme)
+    assert.are.equal("persisted-light", plugin.config.default.themes.light)
+    assert.are.equal("persisted-dark", plugin.config.default.themes.dark)
+    assert.are.equal("persisted-theme", plugin.config.schedule[1].colorscheme)
+  end)
+
+  it("toggle persists the current state", function()
+    local saved
+
+    state.save = function(data)
+      saved = vim.deepcopy(data)
+    end
+
+    plugin.config.enabled = true
+    plugin.config.persist = true
+    plugin.config.refresh_time = 5000
+    plugin.config.default = {
+      colorscheme = "default-theme",
+      background = "system",
+      themes = {
+        light = "day-theme",
+        dark = "night-theme",
+      },
+    }
+    plugin.config.schedule = {
+      { start = "08:00", stop = "18:00", colorscheme = "day", background = "light" },
+    }
+
+    core.toggle()
+
+    assert.is_not_nil(saved)
+    assert.is_false(saved.enabled)
+    assert.are.equal("default-theme", saved.default.colorscheme)
+    assert.are.equal("day-theme", saved.default.themes.light)
+    assert.are.equal("night-theme", saved.default.themes.dark)
+    assert.are.equal("day", saved.schedule[1].colorscheme)
   end)
 end)

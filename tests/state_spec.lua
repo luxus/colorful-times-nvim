@@ -388,6 +388,10 @@ describe("sequential I/O integrity", function()
       default = {
         colorscheme = "default",
         background = "system",
+        themes = {
+          light = "dayfox",
+          dark = "nightfox",
+        },
       },
     }
 
@@ -405,6 +409,8 @@ describe("sequential I/O integrity", function()
     assert.are.equal(5000, loaded.refresh_time)
     assert.is_true(loaded.persist)
     assert.are.equal("default", loaded.default.colorscheme)
+    assert.are.equal("dayfox", loaded.default.themes.light)
+    assert.are.equal("nightfox", loaded.default.themes.dark)
   end)
 
   it("gracefully handles file locking when unavailable", function()
@@ -622,6 +628,31 @@ describe("state.validate_state", function()
 
       it("allows nil colorscheme", function()
         assert.is_true(state.validate_state({ default = {} }))
+      end)
+    end)
+
+    describe("default.themes", function()
+      it("rejects non-table themes", function()
+        local ok, err = state.validate_state({ default = { themes = "bad" } })
+        assert.is_false(ok)
+        assert.is_truthy(err:match("default.themes must be a table"))
+      end)
+
+      it("rejects non-string theme overrides", function()
+        local ok, err = state.validate_state({ default = { themes = { light = 42 } } })
+        assert.is_false(ok)
+        assert.is_truthy(err:match("default.themes.light must be a string"))
+      end)
+
+      it("accepts optional light and dark theme overrides", function()
+        assert.is_true(state.validate_state({
+          default = {
+            themes = {
+              light = "dayfox",
+              dark = "nightfox",
+            },
+          },
+        }))
       end)
     end)
   end)
