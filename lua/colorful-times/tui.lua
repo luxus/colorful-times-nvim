@@ -9,6 +9,9 @@ local sched = require("colorful-times.schedule")
 local VERSION = "2.1.0"
 local MAX_COLORSCHEMES = 200
 
+local BG_OPTIONS = { "system", "dark", "light" }
+local BG_MAP = { system = 1, dark = 2, light = 3 }
+
 -- ─── State ───────────────────────────────────────────────────────────────────
 local _buf, _win, _cursor = nil, nil, 1
 local NS = api.nvim_create_namespace("colorful_times_tui")
@@ -142,8 +145,12 @@ local function pick_colorscheme(default, cb)
       title = "Colorscheme",
       items = vim.iter(schemes):map(function(s) return { text = s } end):totable(),
       format = "text",
-      -- FIX: Preselect the default colorscheme
-      selected = default and vim.iter(schemes):enumerate():find(function(_, s) return s == default end) or nil,
+      -- FIX: Preselect the default colorscheme (return index)
+      selected = default and (function()
+        for i, s in ipairs(schemes) do
+          if s == default then return i end
+        end
+      end)() or nil,
       on_change = function(_, item)
         if item then pcall(vim.cmd.colorscheme, item.text) end
       end,
@@ -176,11 +183,9 @@ local function entry_form(existing, cb)
       if not stop then cb(nil); return end
       pick_colorscheme(existing and existing.colorscheme, function(cs)
         if not cs then cb(nil); return end
-        vim.ui.select({ "system", "dark", "light" }, {
+        vim.ui.select(BG_OPTIONS, {
           prompt = "Background: ",
-          -- FIX: Preselect the existing background
-          default = existing and vim.iter({ "system", "dark", "light" })
-            :enumerate():find(function(_, v) return v == existing.background end) or 1 or 1,
+          default = existing and BG_MAP[existing.background] or 1,
         }, function(bg)
           cb(bg and { start = start, stop = stop, colorscheme = cs, background = bg } or nil)
         end)
@@ -225,9 +230,9 @@ local function action_add()
       if not stop then return end
       pick_colorscheme(current_cs, function(cs)
         if not cs then return end
-        vim.ui.select({ "system", "dark", "light" }, {
+        vim.ui.select(BG_OPTIONS, {
           prompt = "Background: ",
-          default = current_bg == "light" and 3 or current_bg == "dark" and 2 or 1,
+          default = BG_MAP[current_bg] or 1,
         }, function(bg)
           if bg then
             table.insert(ct.config.schedule, { start = start, stop = stop, colorscheme = cs, background = bg })
