@@ -173,8 +173,8 @@ local function backup_corrupted(path)
     return backup_path, false
   end
 
-  local flags = bit.bor(uv.constants.O_WRONLY, uv.constants.O_CREAT, uv.constants.O_TRUNC)
-  local dst_fd = uv.fs_open(backup_path, flags, tonumber("644", 8))
+  local flags = bit.bor(uv.constants.O_WRONLY, uv.constants.O_CREAT, uv.constants.O_EXCL)
+  local dst_fd = uv.fs_open(backup_path, flags, tonumber("600", 8))
   if not dst_fd then
     return backup_path, false
   end
@@ -239,9 +239,9 @@ function M.save(data)
 
   local content = vim.json.encode(data)
   local tmp_path = path .. ".tmp"
-  local flags = bit.bor(uv.constants.O_WRONLY, uv.constants.O_CREAT, uv.constants.O_TRUNC)
+  local flags = bit.bor(uv.constants.O_WRONLY, uv.constants.O_CREAT, uv.constants.O_EXCL)
 
-  local fd, open_err = uv.fs_open(tmp_path, flags, tonumber("644", 8))
+  local fd, open_err = uv.fs_open(tmp_path, flags, tonumber("600", 8))
   if not fd then
     local code = open_err and open_err:match("^(%S+):")
     local msg = ERROR_MESSAGES[code] or ("Could not write state file (" .. (open_err or "unknown") .. ")")

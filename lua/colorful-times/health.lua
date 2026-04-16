@@ -10,7 +10,7 @@ local function writable_dir_check(dir)
   end
 
   local temp_path = dir .. "/.colorful-times-health-" .. tostring(vim.uv.hrtime())
-  local flags = bit.bor(vim.uv.constants.O_WRONLY, vim.uv.constants.O_CREAT, vim.uv.constants.O_TRUNC)
+  local flags = bit.bor(vim.uv.constants.O_WRONLY, vim.uv.constants.O_CREAT, vim.uv.constants.O_EXCL)
   local fd, err = vim.uv.fs_open(temp_path, flags, tonumber("600", 8))
   if not fd then
     return false, err or "could not open temporary file"
