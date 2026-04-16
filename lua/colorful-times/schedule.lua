@@ -7,8 +7,9 @@ local MINUTES_PER_DAY = 1440
 
 -- Optimized LRU cache for parse_time (max 50 entries - time strings are limited)
 local _time_cache = {}
+local _cache_count = 0
 local _CACHE_LIMIT = 50
-local _CACHE_NIL = {}  -- Sentinel for cached nil values
+local _CACHE_NIL = {} -- Sentinel for cached nil values
 
 -- Static lookup for valid backgrounds
 local VALID_BACKGROUNDS = { light = true, dark = true, system = true }
@@ -25,38 +26,36 @@ function M.parse_time(str)
   -- Fast path: check cache first (handles both hits and nil-sentinel misses)
   local cached = _time_cache[str]
   if cached ~= nil then
-    if cached == _CACHE_NIL then return nil end
+    if cached == _CACHE_NIL then
+      return nil
+    end
     return cached
   end
-  
+
   -- Parse the time string
   local hour, min = str:match("^(%d%d?):(%d%d)$")
-  if not hour then
-    _time_cache[str] = _CACHE_NIL
-    return nil
+  local result
+  if hour then
+    hour, min = tonumber(hour), tonumber(min)
+    if hour < 24 and min < 60 then
+      result = hour * 60 + min
+    end
   end
-  
-  hour, min = tonumber(hour), tonumber(min)
-  if hour >= 24 or min >= 60 then
-    _time_cache[str] = _CACHE_NIL
-    return nil
-  end
-  
-  local result = hour * 60 + min
-  
+
   -- LRU eviction: only remove oldest when at limit (rare for time strings)
   -- Time strings have max 1440 unique values (24h * 60m), but typically <10 used
-  local cache_size = 0
-  for _ in pairs(_time_cache) do cache_size = cache_size + 1 end
-  if cache_size >= _CACHE_LIMIT then
+  if _cache_count >= _CACHE_LIMIT then
     -- Find and remove first entry (oldest in insertion order)
     for k in pairs(_time_cache) do
       _time_cache[k] = nil
+      _cache_count = _cache_count - 1
       break
     end
   end
-  
-  _time_cache[str] = result
+
+  local val = result or _CACHE_NIL
+  _time_cache[str] = val
+  _cache_count = _cache_count + 1
   return result
 end
 
