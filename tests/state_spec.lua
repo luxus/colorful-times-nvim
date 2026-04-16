@@ -25,6 +25,94 @@ describe("state.load", function()
     os.remove(tmp)
   end)
 
+  it("returns {} when JSON decodes to a non-table (e.g. number) and creates backup", function()
+    local tmp = os.tmpname()
+    local dir = tmp .. "_dir_number"
+    vim.fn.mkdir(dir, "p")
+    local file = dir .. "/state.json"
+
+    local f = io.open(file, "w")
+    f:write("123")
+    f:close()
+
+    local orig_path = state.path
+    state.path = function()
+      return file
+    end
+
+    local result = state.load()
+    state.path = orig_path
+
+    assert.are.same({}, result)
+
+    local backup_pattern = dir .. "/state.json.bak.*"
+    local backups = vim.fn.glob(backup_pattern, true, true)
+    assert.is_true(#backups >= 1, "backup should be created for JSON number")
+
+    vim.fn.delete(dir, "rf")
+  end)
+
+  it("returns {} when JSON decodes to null and creates backup", function()
+    local tmp = os.tmpname()
+    local dir = tmp .. "_dir_null"
+    vim.fn.mkdir(dir, "p")
+    local file = dir .. "/state.json"
+
+    local f = io.open(file, "w")
+    f:write("null")
+    f:close()
+
+    local orig_path = state.path
+    state.path = function()
+      return file
+    end
+
+    local result = state.load()
+    state.path = orig_path
+
+    assert.are.same({}, result)
+
+    local backup_pattern = dir .. "/state.json.bak.*"
+    local backups = vim.fn.glob(backup_pattern, true, true)
+    assert.is_true(#backups >= 1, "backup should be created for JSON null")
+
+    vim.fn.delete(dir, "rf")
+  end)
+
+  it("backs up corrupted state file when JSON is valid but a boolean", function()
+    local tmp = os.tmpname()
+    local dir = tmp .. "_dir_boolean"
+    vim.fn.mkdir(dir, "p")
+    local file = dir .. "/state.json"
+
+    -- Write valid JSON that is not a table
+    local f = io.open(file, "w")
+    f:write("true") -- boolean is not a table
+    f:close()
+
+    local orig_path = state.path
+    state.path = function()
+      return file
+    end
+
+    -- Load should return empty and create backup
+    local result = state.load()
+    state.path = orig_path
+
+    -- Verify empty state returned
+    assert.are.same({}, result)
+
+    -- Find backup file
+    local backup_pattern = dir .. "/state.json.bak.*"
+    local backups = vim.fn.glob(backup_pattern, true, true)
+
+    -- Verify backup exists
+    assert.is_true(#backups >= 1, "backup file should be created for JSON boolean")
+
+    -- Cleanup
+    vim.fn.delete(dir, "rf")
+  end)
+
   it("backs up corrupted state file with .bak.<timestamp> suffix", function()
     local tmp = os.tmpname()
     local dir = tmp .. "_dir"
