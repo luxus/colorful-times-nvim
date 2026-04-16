@@ -21,6 +21,7 @@ local _poll_inflight = false
 
 -- Static validation lookup tables
 local VALID_BACKGROUNDS = { light = true, dark = true, system = true }
+local THEME_KEYS = { "light", "dark" }
 
 -- ─── Timer Utilities ───────────────────────────────────────────────────────────
 
@@ -383,7 +384,7 @@ local function validate(opts)
       return false, "default.themes must be a table"
     end
 
-    for _, key in ipairs({ "light", "dark" }) do
+    for _, key in ipairs(THEME_KEYS) do
       local theme = opts.default.themes[key]
       if theme ~= nil and type(theme) ~= "string" then
         return false, "default.themes." .. key .. " must be a string"

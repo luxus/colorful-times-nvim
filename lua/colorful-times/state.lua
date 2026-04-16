@@ -20,6 +20,10 @@ local ERROR_MESSAGES = {
 -- Static lookup for valid backgrounds
 local VALID_BACKGROUNDS = { light = true, dark = true, system = true }
 
+-- Static keys for validation and merging
+local THEME_KEYS = { "light", "dark" }
+local STATE_KEYS = { "enabled", "schedule", "refresh_time", "persist" }
+
 ---Ensure the state directory exists without calling Vimscript in fast events.
 ---@param path string
 ---@return boolean ok
@@ -119,7 +123,7 @@ function M.validate_state(data)
       if type(data.default.themes) ~= "table" then
         return false, "default.themes must be a table"
       end
-      for _, key in ipairs({ "light", "dark" }) do
+      for _, key in ipairs(THEME_KEYS) do
         local theme = data.default.themes[key]
         if theme ~= nil and type(theme) ~= "string" then
           return false, "default.themes." .. key .. " must be a string"
@@ -271,7 +275,7 @@ end
 function M.merge(config, stored)
   local result = vim.deepcopy(config)
 
-  for _, key in ipairs({ "enabled", "schedule", "refresh_time", "persist" }) do
+  for _, key in ipairs(STATE_KEYS) do
     if stored[key] ~= nil then result[key] = stored[key] end
   end
 
