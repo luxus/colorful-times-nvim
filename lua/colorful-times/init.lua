@@ -5,7 +5,7 @@ local M = {}
 
 ---@class ColorfulTimes.ScheduleEntry
 ---@field start string          Start time "HH:MM"
----@field stop string           Stop time "HH:MM"  
+---@field stop string           Stop time "HH:MM"
 ---@field colorscheme string    Colorscheme name
 ---@field background? string    "light" | "dark" | "system" | nil
 
@@ -26,7 +26,7 @@ local M = {}
 
 ---@class ColorfulTimes.Config
 ---@field enabled boolean
----@field refresh_time integer  
+---@field refresh_time integer
 ---@field system_background_detection? string[]|fun():string
 ---@field system_background_detection_script? string
 ---@field default ColorfulTimes.DefaultConfig
@@ -49,7 +49,16 @@ M.config = {
 
 -- Lazy-load core on first access - use static lookup for O(1) check
 local _loaded = false
-local _lazy_keys = { setup = true, toggle = true, reload = true, open = true, apply_colorscheme = true }
+local _lazy_keys = {
+  setup = true,
+  enable = true,
+  disable = true,
+  toggle = true,
+  reload = true,
+  open = true,
+  status = true,
+  apply_colorscheme = true,
+}
 
 local function ensure_loaded()
   if not _loaded then
