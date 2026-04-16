@@ -14,6 +14,7 @@ describe("schedule.parse_time", function()
     assert.is_nil(schedule.parse_time("12:60"))
     assert.is_nil(schedule.parse_time("invalid"))
     assert.is_nil(schedule.parse_time(""))
+    assert.is_nil(schedule.parse_time({}))
     assert.are.equal(60, schedule.parse_time("1:00"))  -- single-digit hour is valid per spec
   end)
 end)
@@ -68,6 +69,22 @@ describe("schedule.validate_entry", function()
     assert.is_false(ok)
     assert.is_not_nil(err)
   end)
+
+  it("rejects non-table entries without throwing", function()
+    local ok, err = schedule.validate_entry("not-a-table")
+    assert.is_false(ok)
+    assert.is_truthy(err:match("entry must be a table"))
+  end)
+
+  it("rejects non-string times without throwing", function()
+    local ok, err = schedule.validate_entry({
+      start = 800,
+      stop = "18:00",
+      colorscheme = "tokyonight",
+    })
+    assert.is_false(ok)
+    assert.is_truthy(err:match("invalid start time"))
+  end)
 end)
 
 describe("schedule.preprocess", function()
@@ -88,7 +105,7 @@ describe("schedule.preprocess", function()
     -- Clear any cached state that might affect this test
     package.loaded["colorful-times.schedule"] = nil
     local clean_schedule = require("colorful-times.schedule")
-    
+
     local errors = {}
     -- patch vim.notify to capture messages
     local orig = vim.notify
@@ -102,6 +119,10 @@ describe("schedule.preprocess", function()
     vim.notify = orig
     assert.are.equal(1, #parsed)  -- bad entry skipped
     assert.are.equal(1, #errors)
+  end)
+
+  it("returns empty schedule for non-table input", function()
+    assert.are.same({}, schedule.preprocess("invalid", "dark"))
   end)
 end)
 
@@ -285,7 +306,7 @@ describe("schedule.parse_time cache", function()
     -- Reload module to get fresh cache
     package.loaded["colorful-times.schedule"] = nil
     local test_schedule = require("colorful-times.schedule")
-    
+
     -- First call should compute and cache
     local result1 = test_schedule.parse_time("12:30")
     assert.are.equal(750, result1)
@@ -302,7 +323,7 @@ describe("schedule.parse_time cache", function()
     -- Reload module to get fresh cache
     package.loaded["colorful-times.schedule"] = nil
     local test_schedule = require("colorful-times.schedule")
-    
+
     -- First call should compute and cache nil
     local result1 = test_schedule.parse_time("invalid")
     assert.is_nil(result1)
@@ -322,14 +343,14 @@ describe("schedule.parse_time cache", function()
     -- Reload module to get fresh cache
     package.loaded["colorful-times.schedule"] = nil
     local test_schedule = require("colorful-times.schedule")
-    
+
     -- Monkey-patch string.match to count calls
     local orig_match = string.match
     local call_count = 0
-    string.match = function(s, p)
+    rawset(string, "match", function(s, p)
       call_count = call_count + 1
       return orig_match(s, p)
-    end
+    end)
 
     -- First call should use string.match
     test_schedule.parse_time("14:45")
@@ -348,21 +369,21 @@ describe("schedule.parse_time cache", function()
     assert.are.equal(2, call_count)
 
     -- Restore original
-    string.match = orig_match
+    rawset(string, "match", orig_match)
   end)
 
   it("actually caches invalid results - string.match not called on second access", function()
     -- Reload module to get fresh cache
     package.loaded["colorful-times.schedule"] = nil
     local test_schedule = require("colorful-times.schedule")
-    
+
     -- Monkey-patch string.match to count calls
     local orig_match = string.match
     local call_count = 0
-    string.match = function(s, p)
+    rawset(string, "match", function(s, p)
       call_count = call_count + 1
       return orig_match(s, p)
-    end
+    end)
 
     -- First call with invalid time should use string.match
     test_schedule.parse_time("not-a-time")
@@ -381,16 +402,14 @@ describe("schedule.parse_time cache", function()
     assert.are.equal(2, call_count)
 
     -- Restore original
-    string.match = orig_match
+    rawset(string, "match", orig_match)
   end)
 
-  it("recomputes after cache limit is exceeded", function()
+  it("memoizes many distinct values without eviction side effects", function()
     -- Reload module to get fresh cache
     package.loaded["colorful-times.schedule"] = nil
     local test_schedule = require("colorful-times.schedule")
-    
-    -- Force many different time strings to exceed cache limit
-    -- The cache limit is 100, so we need to add more than that
+
     local results = {}
     for i = 1, 105 do
       local hour = math.floor(i / 60) % 24

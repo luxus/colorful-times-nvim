@@ -1,6 +1,32 @@
 -- lua/colorful-times/health.lua
 local M = {}
 
+---@param dir string
+---@return boolean ok
+---@return string? error
+local function writable_dir_check(dir)
+  if vim.fn.isdirectory(dir) ~= 1 and vim.fn.mkdir(dir, "p") ~= 1 then
+    return false, "could not create state directory"
+  end
+
+  local temp_path = dir .. "/.colorful-times-health-" .. tostring(vim.uv.hrtime())
+  local flags = bit.bor(vim.uv.constants.O_WRONLY, vim.uv.constants.O_CREAT, vim.uv.constants.O_TRUNC)
+  local fd, err = vim.uv.fs_open(temp_path, flags, tonumber("600", 8))
+  if not fd then
+    return false, err or "could not open temporary file"
+  end
+
+  local ok = vim.uv.fs_write(fd, "", 0)
+  vim.uv.fs_close(fd)
+  vim.uv.fs_unlink(temp_path)
+
+  if not ok then
+    return false, "could not write temporary file"
+  end
+
+  return true
+end
+
 ---@return nil
 function M.check()
   local health = vim.health
@@ -31,10 +57,20 @@ function M.check()
   local state = require("colorful-times.state")
   local path  = state.path()
   local dir   = vim.fn.fnamemodify(path, ":h")
-  if vim.fn.isdirectory(dir) == 1 or vim.fn.mkdir(dir, "p") == 1 then
+  local writable, write_err = writable_dir_check(dir)
+  if writable then
     health.ok("State directory writable: " .. dir)
   else
-    health.warn("State directory not writable: " .. dir .. " (TUI changes won't persist)")
+    health.warn("State directory not writable: " .. dir .. " (" .. tostring(write_err) .. ")")
+  end
+
+  -- Detection backend
+  local system = require("colorful-times.system")
+  local detection = system.detection_info()
+  if detection.available then
+    health.ok("System detection available: " .. detection.detail)
+  else
+    health.warn("System detection unavailable: " .. detection.detail)
   end
 
   -- Schedule validation

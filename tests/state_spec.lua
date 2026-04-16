@@ -138,6 +138,71 @@ describe("state.save and state.load roundtrip", function()
   end)
 end)
 
+describe("state persistence regressions", function()
+  local state_mod
+  local test_dir
+  local file
+  local orig_path
+
+  before_each(function()
+    package.loaded["colorful-times.state"] = nil
+    state_mod = require("colorful-times.state")
+    test_dir = os.tmpname() .. "_dir"
+    vim.fn.mkdir(test_dir, "p")
+    file = test_dir .. "/state.json"
+    orig_path = state_mod.path
+    state_mod.path = function() return file end
+  end)
+
+  after_each(function()
+    state_mod.path = orig_path
+    vim.fn.delete(test_dir, "rf")
+    package.loaded["colorful-times.state"] = nil
+  end)
+
+  it("removes the temporary file after an atomic save and preserves data", function()
+    local data = {
+      enabled = true,
+      persist = true,
+      schedule = {
+        { start = "06:00", stop = "18:00", colorscheme = "day", background = "light" },
+      },
+      default = {
+        colorscheme = "fallback",
+        background = "dark",
+      },
+    }
+
+    state_mod.save(data)
+
+    assert.is_nil(vim.uv.fs_stat(file .. ".tmp"))
+    assert.are.same(data, state_mod.load())
+  end)
+
+  it("keeps defaults intact when invalid loaded state is merged", function()
+    local handle = assert(io.open(file, "w"))
+    handle:write("not json")
+    handle:close()
+
+    local loaded = state_mod.load()
+    local defaults = {
+      enabled = true,
+      persist = true,
+      refresh_time = 5000,
+      schedule = {
+        { start = "08:00", stop = "17:00", colorscheme = "base", background = "light" },
+      },
+      default = {
+        colorscheme = "base-default",
+        background = "system",
+      },
+    }
+
+    assert.are.same({}, loaded)
+    assert.are.same(defaults, state_mod.merge(vim.deepcopy(defaults), loaded))
+  end)
+end)
+
 describe("state.merge", function()
   local base = {
     enabled = true,
@@ -231,17 +296,17 @@ describe("FIXED: complete merge - all config keys", function()
     assert.are.equal("default", result.default.colorscheme)
   end)
 
-  it("empty default table still merges (regression)", function()
+  it("empty default table preserves existing defaults", function()
     local result = state.merge(vim.deepcopy(full_base), {
       default = {}
     })
-    assert.are.same({}, result.default)
+    assert.are.equal("default", result.default.colorscheme)
   end)
 end)
 
 -- State validation tests (task-5)
-describe("FIXED: file locking - concurrent access", function()
-  it("allows multiple shared readers simultaneously", function()
+describe("sequential I/O integrity", function()
+  it("multiple sequential reads return consistent data", function()
     local tmp = os.tmpname()
     local dir = tmp .. "_dir"
     vim.fn.mkdir(dir, "p")
@@ -257,7 +322,7 @@ describe("FIXED: file locking - concurrent access", function()
 
     -- Simulate multiple readers by reading in sequence
     local results = {}
-    for i = 1, 5 do
+    for _ = 1, 5 do
       table.insert(results, state.load())
     end
 
@@ -271,7 +336,7 @@ describe("FIXED: file locking - concurrent access", function()
     end
   end)
 
-  it("exclusive lock prevents concurrent writes", function()
+  it("sequential writes persist correctly", function()
     local tmp = os.tmpname()
     local dir = tmp .. "_dir"
     vim.fn.mkdir(dir, "p")
@@ -302,7 +367,7 @@ describe("FIXED: file locking - concurrent access", function()
     vim.fn.delete(dir, "rf")
   end)
 
-  it("data integrity maintained through concurrent operations", function()
+  it("complex data survives write-read roundtrip", function()
     local tmp = os.tmpname()
     local dir = tmp .. "_dir"
     vim.fn.mkdir(dir, "p")
@@ -323,6 +388,10 @@ describe("FIXED: file locking - concurrent access", function()
       default = {
         colorscheme = "default",
         background = "system",
+        themes = {
+          light = "dayfox",
+          dark = "nightfox",
+        },
       },
     }
 
@@ -340,6 +409,8 @@ describe("FIXED: file locking - concurrent access", function()
     assert.are.equal(5000, loaded.refresh_time)
     assert.is_true(loaded.persist)
     assert.are.equal("default", loaded.default.colorscheme)
+    assert.are.equal("dayfox", loaded.default.themes.light)
+    assert.are.equal("nightfox", loaded.default.themes.dark)
   end)
 
   it("gracefully handles file locking when unavailable", function()
@@ -557,6 +628,31 @@ describe("state.validate_state", function()
 
       it("allows nil colorscheme", function()
         assert.is_true(state.validate_state({ default = {} }))
+      end)
+    end)
+
+    describe("default.themes", function()
+      it("rejects non-table themes", function()
+        local ok, err = state.validate_state({ default = { themes = "bad" } })
+        assert.is_false(ok)
+        assert.is_truthy(err:match("default.themes must be a table"))
+      end)
+
+      it("rejects non-string theme overrides", function()
+        local ok, err = state.validate_state({ default = { themes = { light = 42 } } })
+        assert.is_false(ok)
+        assert.is_truthy(err:match("default.themes.light must be a string"))
+      end)
+
+      it("accepts optional light and dark theme overrides", function()
+        assert.is_true(state.validate_state({
+          default = {
+            themes = {
+              light = "dayfox",
+              dark = "nightfox",
+            },
+          },
+        }))
       end)
     end)
   end)

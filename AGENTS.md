@@ -73,6 +73,8 @@ plugin/
 tests/
 ├── minimal_init.vim
 ├── core_spec.lua
+├── health_spec.lua
+├── init_spec.lua
 ├── state_spec.lua
 ├── schedule_spec.lua
 └── system_spec.lua
@@ -90,7 +92,7 @@ The codebase has been heavily optimized for performance:
 ### Caching Strategies
 
 1. **Schedule Preprocessing** (`core.lua`): Cached parsed schedule to avoid re-parsing on every theme check
-2. **Time Parsing** (`schedule.lua`): LRU cache for HH:MM → minutes conversion (max 50 entries)
+2. **Time Parsing** (`schedule.lua`): Deterministic memo cache for HH:MM → minutes conversion
 3. **Next Change Calculation** (`schedule.lua`): Single-entry cache for `next_change_at` results
 4. **Snacks Detection** (`tui.lua`): Cached result of `pcall(require, "snacks")`
 5. **Platform Detection** (`system.lua`): Cached `uv.os_uname().sysname` result
@@ -116,6 +118,9 @@ The codebase has been heavily optimized for performance:
 Two timer types:
 - `_timers.schedule`: Fires at next schedule boundary (one-shot, rescheduled after firing)
 - `_timers.poll`: Recurring timer for system background detection (only when needed)
+
+Poll callbacks are single-flight: do not spawn a new detection run while the
+previous run is still in flight.
 
 Both use proper cleanup:
 ```lua
@@ -145,10 +150,10 @@ end
 Priority order:
 1. User-provided function (`cfg.system_background_detection`)
 2. User-provided command table
-3. macOS: `defaults read -g AppleInterfaceStyle`
-4. Linux KDE: `kreadconfig6` or `kreadconfig5`
-5. Linux GNOME: `gsettings get org.gnome.desktop.interface color-scheme`
-6. Custom script (`cfg.system_background_detection_script`)
+3. macOS: `osascript`, then `defaults read -g AppleInterfaceStyle` as fallback
+4. Linux custom script (`cfg.system_background_detection_script`)
+5. Linux KDE: `kreadconfig6` or `kreadconfig5`
+6. Linux GNOME: `gsettings get org.gnome.desktop.interface color-scheme`
 
 All detection is async via `uv.spawn()`.
 
