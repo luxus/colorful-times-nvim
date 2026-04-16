@@ -27,10 +27,8 @@ local function writable_dir_check(dir)
   return true
 end
 
----@return nil
-function M.check()
-  local health = vim.health
-
+---@param health table
+local function check_neovim(health)
   -- Neovim version check
   if vim.fn.has("nvim-0.12") == 1 then
     health.ok("Neovim >= 0.12")
@@ -44,7 +42,10 @@ function M.check()
   else
     health.error("vim.uv not available — this should not happen on Neovim 0.12+")
   end
+end
 
+---@param health table
+local function check_dependencies(health)
   -- snacks.nvim (optional)
   local has_snacks = pcall(require, "snacks")
   if has_snacks then
@@ -52,18 +53,24 @@ function M.check()
   else
     health.info("snacks.nvim not found — TUI will use vim.ui.input / vim.ui.select fallback")
   end
+end
 
+---@param health table
+local function check_state(health)
   -- State file
   local state = require("colorful-times.state")
-  local path  = state.path()
-  local dir   = vim.fn.fnamemodify(path, ":h")
+  local path = state.path()
+  local dir = vim.fn.fnamemodify(path, ":h")
   local writable, write_err = writable_dir_check(dir)
   if writable then
     health.ok("State directory writable: " .. dir)
   else
     health.warn("State directory not writable: " .. dir .. " (" .. tostring(write_err) .. ")")
   end
+end
 
+---@param health table
+local function check_detection(health)
   -- Detection backend
   local system = require("colorful-times.system")
   local detection = system.detection_info()
@@ -72,11 +79,14 @@ function M.check()
   else
     health.warn("System detection unavailable: " .. detection.detail)
   end
+end
 
+---@param health table
+local function check_schedule(health)
   -- Schedule validation
-  local M_cfg  = require("colorful-times")
-  local sched  = require("colorful-times.schedule")
-  local bad    = 0
+  local M_cfg = require("colorful-times")
+  local sched = require("colorful-times.schedule")
+  local bad = 0
   for idx, entry in ipairs(M_cfg.config.schedule) do
     local ok, err = sched.validate_entry(entry)
     if not ok then
@@ -87,10 +97,25 @@ function M.check()
   if bad == 0 then
     health.ok(string.format("Schedule: %d entries, all valid", #M_cfg.config.schedule))
   end
+end
 
+---@param health table
+local function check_colorscheme(health)
   -- Current colorscheme
   local cs = vim.g.colors_name or "(none)"
   health.info("Current colorscheme: " .. cs)
+end
+
+---@return nil
+function M.check()
+  local health = vim.health
+
+  check_neovim(health)
+  check_dependencies(health)
+  check_state(health)
+  check_detection(health)
+  check_schedule(health)
+  check_colorscheme(health)
 end
 
 return M
