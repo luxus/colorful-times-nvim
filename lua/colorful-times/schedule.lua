@@ -158,15 +158,6 @@ function M.get_active_entry(parsed, time_mins)
   return nil
 end
 
----Get the currently active schedule entry from raw entries (convenience)
----@param raw table[]
----@param time_mins integer
----@param default_bg string
----@return ColorfulTimes.ParsedEntry|nil
-function M.get_active(raw, time_mins, default_bg)
-  return M.get_active_entry(M.preprocess(raw, default_bg), time_mins)
-end
-
 ---Calculate minutes until next schedule boundary
 ---Uses binary search on precomputed boundary table for O(log n) performance
 ---@param parsed ColorfulTimes.ParsedEntry[]
