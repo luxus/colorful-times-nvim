@@ -185,11 +185,19 @@ function M.next_change_at(parsed, time_mins)
     -- Fallback to O(n) method if boundaries not precomputed (shouldn't happen)
     local min_diff
     for _, entry in ipairs(parsed) do
-      for _, boundary in ipairs({ entry.start_time, entry.stop_time }) do
-        local diff = boundary - time_mins
-        if diff <= 0 then diff = diff + MINUTES_PER_DAY end
-        min_diff = math.min(min_diff or diff, diff)
+      -- Boundary 1: start_time
+      local diff1 = entry.start_time - time_mins
+      if diff1 <= 0 then
+        diff1 = diff1 + MINUTES_PER_DAY
       end
+      min_diff = math.min(min_diff or diff1, diff1)
+
+      -- Boundary 2: stop_time
+      local diff2 = entry.stop_time - time_mins
+      if diff2 <= 0 then
+        diff2 = diff2 + MINUTES_PER_DAY
+      end
+      min_diff = math.min(min_diff or diff2, diff2)
     end
     return min_diff
   end
