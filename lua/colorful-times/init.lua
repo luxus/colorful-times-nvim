@@ -58,6 +58,12 @@ local _lazy_keys = {
   open = true,
   status = true,
   apply_colorscheme = true,
+  refresh = true,
+  resolve_theme_context = true,
+  active_resolved_theme = true,
+  pin_session = true,
+  unpin_session = true,
+  session_pin = true,
 }
 
 local function ensure_loaded()

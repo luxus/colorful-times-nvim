@@ -18,6 +18,8 @@ local _augroup = vim.api.nvim_create_augroup("ColorfulTimes", { clear = true })
 local _parsed_schedule = nil  -- Cache for preprocessed schedule
 local _base_config = nil      -- User config before persisted state is merged
 local _poll_inflight = false
+local _runtime = M.runtime or { session_pin = nil }
+M.runtime = _runtime
 
 -- Static validation lookup tables
 local VALID_BACKGROUNDS = { light = true, dark = true, system = true }
@@ -52,6 +54,19 @@ end
 ---Resolve current theme based on config and schedule
 ---@return table
 local function resolve_theme_context()
+  local pin = _runtime.session_pin
+  if pin then
+    return {
+      source = "session_pin",
+      colorscheme = pin.colorscheme,
+      background = pin.background,
+      resolved_background = pin.resolved_background,
+      use_default_theme_overrides = false,
+      pinned = true,
+      session_pin = vim.deepcopy(pin),
+    }
+  end
+
   local cfg = M.config
   if not cfg.enabled then
     local bg = cfg.default.background
@@ -96,6 +111,18 @@ function M.resolve_theme()
   return resolved.colorscheme, resolved.background, resolved.use_default_theme_overrides
 end
 
+---@return table
+function M.resolve_theme_context()
+  return vim.deepcopy(resolve_theme_context())
+end
+
+---@return string colorscheme
+---@return string background
+function M.active_resolved_theme()
+  local status = M.status()
+  return status.colorscheme, status.background
+end
+
 ---Apply colorscheme and background synchronously
 ---@param cs string
 ---@param bg string
@@ -122,7 +149,19 @@ end
 
 ---Apply theme with optional async system detection
 function M.apply_colorscheme()
-  local cs, bg, use_default_theme_overrides = M.resolve_theme()
+  local resolved = resolve_theme_context()
+  local cs = resolved.colorscheme
+  local bg = resolved.background
+  local use_default_theme_overrides = resolved.use_default_theme_overrides
+
+  if resolved.pinned then
+    local concrete_bg = resolved.resolved_background
+    if concrete_bg ~= "light" and concrete_bg ~= "dark" then
+      concrete_bg = bg ~= "system" and bg or (_previous_bg or vim.o.background or "dark")
+    end
+    vim.schedule(function() apply_sync(cs, concrete_bg) end)
+    return
+  end
 
   if bg ~= "system" then
     vim.schedule(function() apply_sync(cs, bg) end)
@@ -150,6 +189,8 @@ end
 ---@field colorscheme string
 ---@field background string
 ---@field requested_background string
+---@field pinned boolean
+---@field session_pin table|nil
 ---@field schedule_entries integer
 ---@field refresh_time integer
 ---@field detection ColorfulTimes.DetectionInfo
@@ -161,7 +202,9 @@ function M.status()
   local effective_bg = resolved.background
   local effective_cs = resolved.colorscheme
 
-  if resolved.background == "system" then
+  if resolved.pinned then
+    effective_bg = resolved.resolved_background or resolved.background or vim.o.background or "dark"
+  elseif resolved.background == "system" then
     effective_bg = _previous_bg or vim.o.background or "dark"
     effective_cs = resolve_detected_colorscheme(
       resolved.colorscheme,
@@ -177,6 +220,8 @@ function M.status()
     colorscheme = effective_cs,
     background = effective_bg,
     requested_background = resolved.background,
+    pinned = resolved.pinned or false,
+    session_pin = resolved.session_pin,
     schedule_entries = #M.config.schedule,
     refresh_time = M.config.refresh_time,
     detection = system.detection_info(),
@@ -231,6 +276,10 @@ end
 ---Check if system polling is needed based on current schedule
 ---@return boolean
 local function needs_system_poll()
+  if _runtime.session_pin then
+    return false
+  end
+
   if not M.config.enabled then
     return M.config.default.background == "system"
   end
@@ -282,6 +331,56 @@ start_poll_timer = function()
       if bg ~= _previous_bg then M.apply_colorscheme() end
     end, fallback)
   end)
+end
+
+---Re-apply current config and restart runtime timers without reloading persisted state.
+function M.refresh()
+  stop_all_timers()
+  _parsed_schedule = nil
+  _poll_inflight = false
+
+  M.apply_colorscheme()
+  if M.config.enabled then
+    arm_schedule_timer()
+    start_poll_timer()
+  end
+end
+
+---@return table|nil
+function M.session_pin()
+  return _runtime.session_pin and vim.deepcopy(_runtime.session_pin) or nil
+end
+
+---@param colorscheme? string
+---@param background? "light"|"dark"|"system"
+---@param resolved_background? "light"|"dark"
+function M.pin_session(colorscheme, background, resolved_background)
+  local cs = colorscheme or vim.g.colors_name or M.config.default.colorscheme
+  local requested_bg = VALID_BACKGROUNDS[background] and background or (vim.o.background or "dark")
+  local concrete_bg = resolved_background
+
+  if concrete_bg ~= "light" and concrete_bg ~= "dark" then
+    concrete_bg = requested_bg ~= "system" and requested_bg or (_previous_bg or vim.o.background or "dark")
+  end
+  if concrete_bg ~= "light" and concrete_bg ~= "dark" then
+    concrete_bg = "dark"
+  end
+
+  _runtime.session_pin = {
+    colorscheme = cs,
+    background = requested_bg,
+    resolved_background = concrete_bg,
+  }
+  _previous_bg = concrete_bg
+  M.refresh()
+end
+
+function M.unpin_session()
+  if not _runtime.session_pin then
+    return
+  end
+  _runtime.session_pin = nil
+  M.refresh()
 end
 
 -- ─── Enable / Disable ────────────────────────────────────────────────────────

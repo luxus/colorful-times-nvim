@@ -46,13 +46,7 @@ end
 
 ---@param health table
 local function check_dependencies(health)
-  -- snacks.nvim (optional)
-  local has_snacks = pcall(require, "snacks")
-  if has_snacks then
-    health.ok("snacks.nvim found (TUI fully functional)")
-  else
-    health.info("snacks.nvim not found — TUI will use vim.ui.input / vim.ui.select fallback")
-  end
+  health.ok("Inline TUI available (no optional picker dependency)")
 end
 
 ---@param health table

@@ -479,6 +479,83 @@ describe("core.setup regression coverage", function()
   end)
 end)
 
+describe("core session pin", function()
+  local core
+  local plugin
+  local state
+  local orig_save
+
+  before_each(function()
+    for name in pairs(package.loaded) do
+      if name == "colorful-times" or name:match("^colorful%-times%.") then
+        package.loaded[name] = nil
+      end
+    end
+
+    core = require("colorful-times.core")
+    plugin = require("colorful-times")
+    state = require("colorful-times.state")
+    orig_save = state.save
+
+    plugin.config.enabled = true
+    plugin.config.persist = false
+    plugin.config.default = {
+      colorscheme = "default-theme",
+      background = "dark",
+      themes = { light = nil, dark = nil },
+    }
+    plugin.config.schedule = {}
+  end)
+
+  after_each(function()
+    state.save = orig_save
+    pcall(vim.api.nvim_clear_autocmds, { group = "ColorfulTimes" })
+    for name in pairs(package.loaded) do
+      if name == "colorful-times" or name:match("^colorful%-times%.") then
+        package.loaded[name] = nil
+      end
+    end
+  end)
+
+  it("overrides status resolution until unpinned", function()
+    core.pin_session("pinned-theme", "dark", "dark")
+
+    local status = core.status()
+    assert.is_true(status.pinned)
+    assert.are.equal("session_pin", status.source)
+    assert.are.equal("pinned-theme", status.colorscheme)
+    assert.are.equal("dark", status.background)
+
+    plugin.config.default.colorscheme = "mutated-theme"
+    core.reload()
+
+    status = core.status()
+    assert.is_true(status.pinned)
+    assert.are.equal("pinned-theme", status.colorscheme)
+
+    core.unpin_session()
+
+    status = core.status()
+    assert.is_false(status.pinned)
+    assert.are.equal("default", status.source)
+  end)
+
+  it("never persists the runtime session pin", function()
+    local saved
+    state.save = function(data)
+      saved = vim.deepcopy(data)
+    end
+
+    plugin.config.persist = true
+    core.pin_session("pinned-theme", "dark", "dark")
+    core.save_state()
+
+    assert.is_not_nil(saved)
+    assert.is_nil(saved.session_pin)
+    assert.is_nil(saved.runtime)
+  end)
+end)
+
 describe("core polling hardening", function()
   local orig_defer_fn
   local orig_new_timer

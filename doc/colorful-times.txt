@@ -28,8 +28,8 @@ It achieves zero-blocking startup overhead by:
 2. Synchronously initializing only necessary states to avoid UI flash.
 3. Checking actual system preferences using non-blocking asynchronous `uv.spawn`.
 
-Requires Neovim >= 0.12.0. Optionally uses snacks.nvim for the TUI fuzzy
-colorscheme picker (falls back to `vim.ui.*` if not available).
+Requires Neovim >= 0.12.0. The TUI is built in and has no optional picker
+dependency.
 
 ==============================================================================
 2. Configuration                                       *colorful-times-configuration*
@@ -71,9 +71,10 @@ Schedule syntax:
     and loaded at startup. Set to `false` to opt out.
 
 Theme resolution order:
-1. matching schedule entry
-2. `default.background`
-3. `default.colorscheme` or `default.themes.light` / `.dark`
+1. runtime session hold, when active
+2. matching schedule entry
+3. `default.background`
+4. `default.colorscheme` or `default.themes.light` / `.dark`
 
 If the resolved background is `system`, Colorful Times applies a safe fallback
 first and then updates asynchronously once the actual light/dark system
@@ -117,12 +118,14 @@ background is detected.
                                                        *:ColorfulTimesStatus*
 :ColorfulTimesStatus
     Show the current resolved colorscheme, background, state, and
-    detection backend information.
+    detection backend information. If a session hold is active, the status
+    command output includes `held: true`; API status still reports
+    `pinned: true` and `source: session_pin` for compatibility.
 
                                                        *:checkhealth*
 :checkhealth colorful-times
     Run the health check to verify Neovim version, vim.uv availability,
-    snacks.nvim presence, real state-directory writability, detection
+    inline TUI availability, real state-directory writability, detection
     backend availability, and schedule validity.
 
 ==============================================================================
@@ -150,38 +153,94 @@ background is detected.
 
 `require('colorful-times').status()`                   *colorful-times.status()*
     Returns a table describing the currently resolved source, colorscheme,
-    background, persistence state, and detection backend.
+    background, persistence state, session hold state, and detection backend.
+
+`require('colorful-times').pin_session(cs, bg, resolved_bg)`
+                                                        *colorful-times.pin_session()*
+    Hold a colorscheme/background for the current Neovim session. The hold is
+    runtime-only, overrides schedules and system detection, and is never
+    persisted to `state.json`.
+
+`require('colorful-times').unpin_session()`             *colorful-times.unpin_session()*
+    Remove the active session hold and return to normal schedule resolution.
+
+`require('colorful-times').session_pin()`               *colorful-times.session_pin()*
+    Return the current runtime session hold table, or nil when no hold is active.
 
 ==============================================================================
 5. TUI — Schedule Manager                              *colorful-times-tui*
 
 Run `:ColorfulTimes` to open a keyboard-driven floating window for managing
-your time-based colorscheme schedule and default theme settings.
+your time-based colorscheme schedule and default theme settings. The TUI uses
+one floating window and one scratch buffer. Adding, editing, theme selection,
+and background selection all happen inline in that same buffer.
+
+Modes~
+    browse          View status, defaults, timeline, and schedule rows.
+    edit            Edit a schedule row in an inline drawer.
+    theme_select    Filter and choose colorschemes inline with live preview.
+    bg_select       Cycle system/light/dark in an inline segmented control.
 
 Keymaps~
-    j / <Down>    Move selection down
-    k / <Up>      Move selection up
+    Tab           Switch focus between Defaults and Schedule
+    j / <Down>    Move selection down inside focused panel
+    k / <Up>      Move selection up inside focused panel
     a             Add a new schedule entry
-    e / <Enter>   Edit the selected entry
-    d / x         Delete the selected entry (with confirmation)
-    c             Set the fallback default colorscheme
-    b             Set the fallback default background
-    l             Set or clear the system-light theme override
-    n             Set or clear the system-dark theme override
+    e / <Enter>   Edit selected schedule row or default row
+    d / x         Delete the selected schedule entry (with confirmation)
+    H             Hold current theme for this session; press again to release
     t             Toggle the plugin enabled/disabled
     r             Reload configuration
     ?             Show keymap help
     q / <Esc>     Close the TUI
 
-When snacks.nvim is available, the colorscheme field uses a fuzzy picker
-with live preview. Without snacks.nvim, `vim.ui.select` is used instead.
+Edit mode keymaps~
+    Tab / j / k    Move between fields
+    0-9 / :        Replace the active start/stop time; `14` becomes `14:00`
+    <Enter>        Open inline theme/background selector for active field
+    S              Save the draft, apply it, and persist it
+    O              Hold current draft for this session; press again to release
+    <Esc>          Cancel and restore the preview snapshot
+
+Theme selector keymaps~
+    type text      Filter colorschemes
+    <BS>           Delete one filter character
+    j / k          Move selection and preview live
+    <Enter>        Confirm the selected colorscheme
+    <Esc>          Cancel and restore the previous preview
+
+Background selector keymaps~
+    h / l / j / k  Cycle system/light/dark and preview live
+    <Enter>        Confirm the selected background
+    <Esc>          Cancel and restore the previous preview
+
+Preview lifecycle~
+    Entering add/edit mode captures the current colorscheme and background.
+    Moving through theme choices or cycling background applies a live preview.
+    Saving commits the preview. Canceling restores the exact captured
+    colorscheme/background.
+
+Session hold~
+    Press `H` to hold the current resolved theme for this Neovim session.
+    In edit mode, `O` holds the current draft preview. While held,
+    automatic schedule changes and system background changes do not apply a
+    different theme. Press the same key again to release. The hold is
+    runtime-only, not persisted, shown in the TUI header, and removed by
+    restarting Neovim.
+
+Add defaults~
+    New schedule entries default to the current resolved colorscheme and
+    background. Time defaults use the displayed chronological schedule view:
+    start is the stop time of the last displayed entry, and stop is the start
+    time of the first displayed entry. With no entries, the defaults are
+    08:00-18:00.
 
 The TUI also shows the theme resolution order inline:
 `schedule entry > default.background > default theme override`
 
 Changes made in the TUI are immediately applied and persisted to disk
-(unless `persist = false`). This includes schedule edits, enabled/disabled
-state, and default theme settings.
+(unless `persist = false`). Runtime preview snapshots and session holds are
+never persisted.
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:

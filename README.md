@@ -64,7 +64,7 @@ Here are the default options.
 }
 ```
 
-The `snacks.nvim` plugin is optional. If installed, Colorful Times uses it to provide a fuzzy colorscheme picker with live preview in the TUI.
+The schedule manager TUI is fully inline: one floating window, one scratch buffer, live theme/background preview, and no extra edit popup.
 
 ## Commands
 
@@ -75,7 +75,7 @@ The `snacks.nvim` plugin is optional. If installed, Colorful Times uses it to pr
 | `:ColorfulTimesDisable` | Disable the plugin |
 | `:ColorfulTimesToggle` | Enable or disable the plugin |
 | `:ColorfulTimesReload` | Reload configuration from disk |
-| `:ColorfulTimesStatus` | Show the current resolved theme state |
+| `:ColorfulTimesStatus` | Show the current resolved theme state, including session hold state |
 | `:checkhealth colorful-times` | Run diagnostics |
 
 ## Schedule Manager TUI
@@ -83,23 +83,27 @@ The `snacks.nvim` plugin is optional. If installed, Colorful Times uses it to pr
 Run `:ColorfulTimes` to open the interactive manager.
 
 ```
-┌─────────────────── Colorful Times ─────────────────────┐
-│  [●] ENABLED  2.2.0                                     │
-│ ────────────────────────────────────────────────────── │
-│  DEFAULT  kanagawa                      BG system       │
-│  LIGHT    kanagawa-lotus                               │
-│  DARK     kanagawa-wave                                │
-│  ORDER    schedule > default.background > default...   │
-│ ────────────────────────────────────────────────────── │
-│  START   STOP    COLORSCHEME                   BG       │
-│ ────────────────────────────────────────────────────── │
-│  06:00   18:00   tokyonight-day                light    │
-│  18:00   06:00   tokyonight                    dark     │
-│ ────────────────────────────────────────────────────── │
-│  [a] add  [e/<CR>] edit  [d/x] delete  [c] default... │
-│  [l] light override  [n] dark override  ...           │
-└─────────────────────────────────────────────────────────┘
+  ● ENABLED  Colorful Times 2.3.0
+  Active  tokyonight-night • bg dark
+  Source  schedule  · requested bg dark
+  00:00 ···━━━━━━┃━━━━━━━━······················ 24:00  now 22:30
+  ────────────────────────────────────────────────────────────
+  DEFAULTS
+    COLORSCHEME  default
+    BACKGROUND   system
+    LIGHT        dayfox
+    DARK         nightfox
+  ────────────────────────────────────────────────────────────
+  Schedule
+     START   STOP    COLORSCHEME                     BG        STATE
+  ▸  08:00   18:00   tokyonight-day                  light
+     18:00   08:00   tokyonight-night                dark      ● active
+  ────────────────────────────────────────────────────────────
+  Tab switch panel  j/k move  <CR> edit  a add schedule  d delete schedule
+  H hold/release session theme  t toggle  r reload  q quit
 ```
+
+Adding or editing opens an inline drawer in the same buffer. Theme selection expands into an inline filterable list; moving through choices previews live. Background selection is an inline segmented control for `system`, `light`, and `dark`.
 
 ### TUI Keymaps
 
@@ -107,25 +111,41 @@ Run `:ColorfulTimes` to open the interactive manager.
 |-----|--------|
 | `j` / `Down` | Move down |
 | `k` / `Up` | Move up |
-| `a` | Add new entry |
-| `e` / `Enter` | Edit selected entry |
-| `d` / `x` | Delete selected entry |
-| `c` | Set the fallback default colorscheme |
-| `b` | Set the fallback default background |
-| `l` | Set or clear the system-light theme override |
-| `n` | Set or clear the system-dark theme override |
+| `Tab` | Switch focus between Defaults and Schedule |
+| `a` | Add new schedule entry |
+| `e` / `Enter` | Edit selected schedule row or focused default row |
+| `d` / `x` | Delete selected schedule entry |
+| `H` | Hold current theme for this session; press again to release |
 | `t` | Toggle enabled or disabled |
 | `r` | Reload configuration |
 | `?` | Show help |
 | `q` / `Esc` | Close TUI |
 
+### Inline Editing
+
+| Key | Action |
+|-----|--------|
+| `Tab` / `j` / `k` | Move between fields |
+| `0-9` / `:` | Replace the active start or stop time; `14` becomes `14:00` |
+| `Enter` | Open inline theme/background selector for the active field |
+| `S` | Save draft and persist it |
+| `O` | Hold current draft for this session; press again to release |
+| `Esc` | Cancel and restore the preview snapshot |
+
+New entries default to the current resolved colorscheme/background. Time defaults come from the displayed chronological schedule: `start` is the stop time of the last displayed entry, and `stop` is the start time of the first displayed entry. Empty schedules default to `08:00`–`18:00`.
+
+### Session Hold
+
+`H` holds the currently resolved theme/background for the rest of the Neovim session. In edit mode, `O` holds the current draft preview. While held, scheduled changes and system background changes do not apply a different theme. Press the same key again to release it. The hold is runtime-only, appears in the TUI/status output, and disappears on restart.
+
 ### Theme Resolution Order
 
 Colorful Times resolves the active theme in this order:
 
-1. Matching schedule entry
-2. `default.background`
-3. `default.colorscheme` or `default.themes.light` / `default.themes.dark`
+1. Runtime session hold, when active
+2. Matching schedule entry
+3. `default.background`
+4. `default.colorscheme` or `default.themes.light` / `default.themes.dark`
 
 If the resolved background is `system`, the plugin keeps a safe fallback first
 and then updates to the detected light or dark background asynchronously.
@@ -156,6 +176,7 @@ If you use macOS keyboard shortcuts or Automator scripts to toggle system appear
 When `persist = true`, the plugin saves schedule edits, toggle state, and
 default theme settings to disk immediately. `:ColorfulTimesReload` rebuilds
 the live config from your setup config plus the persisted state file.
+Live preview snapshots and session holds are never persisted.
 
 State file location:
 `~/.local/share/nvim/colorful-times/state.json`
@@ -185,6 +206,10 @@ ct.open()
 
 -- Inspect the current resolved state
 ct.status()
+
+-- Hold/release a runtime-only theme for this Neovim session
+ct.pin_session("tokyonight-night", "dark", "dark")
+ct.unpin_session()
 ```
 
 ## Performance

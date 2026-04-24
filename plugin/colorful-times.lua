@@ -31,16 +31,20 @@ vim.api.nvim_create_user_command("ColorfulTimesStatus", function()
   require("colorful-times.core")
   local status = require("colorful-times").status()
 
-  vim.notify(table.concat({
-    "colorful-times status:",
-    "  enabled: " .. tostring(status.enabled),
-    "  persist: " .. tostring(status.persist),
-    "  source: " .. status.source,
-    "  colorscheme: " .. status.colorscheme,
-    "  background: " .. status.background,
-    "  requested background: " .. status.requested_background,
-    "  schedule entries: " .. tostring(status.schedule_entries),
-    "  refresh_time: " .. tostring(status.refresh_time) .. "ms",
-    "  detection: " .. status.detection.detail,
-  }, "\n"), vim.log.levels.INFO)
+  vim.notify(
+    table.concat({
+      "colorful-times status:",
+      "  enabled: " .. tostring(status.enabled),
+      "  persist: " .. tostring(status.persist),
+      "  source: " .. status.source,
+      "  colorscheme: " .. status.colorscheme,
+      "  background: " .. status.background,
+      "  requested background: " .. status.requested_background,
+      "  held: " .. tostring(status.pinned),
+      "  schedule entries: " .. tostring(status.schedule_entries),
+      "  refresh_time: " .. tostring(status.refresh_time) .. "ms",
+      "  detection: " .. status.detection.detail,
+    }, "\n"),
+    vim.log.levels.INFO
+  )
 end, { desc = "Show colorful-times status" })
