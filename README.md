@@ -1,5 +1,7 @@
 # Colorful Times
 
+![Colorful Times comic](https://github.com/user-attachments/assets/a3b590e2-3dd9-45a3-9df3-a9c8d23f133a)
+
 A fast, lightweight Neovim plugin that automatically changes your colorscheme based on time of day schedules or system appearance.
 
 [![Neovim](https://img.shields.io/badge/Neovim-0.12%2B-green.svg?style=flat-square)](https://neovim.io/)
@@ -13,6 +15,59 @@ A fast, lightweight Neovim plugin that automatically changes your colorscheme ba
 * Interactive TUI for both schedule entries and default theme settings.
 * State persistence saves your changes automatically.
 * Zero startup impact using fully asynchronous background detection.
+
+## Schedule Manager TUI
+
+Run `:ColorfulTimes` to open the interactive manager.
+
+![Colorful Times schedule manager TUI](assets/tui-schedule-manager.png)
+
+Adding or editing opens an inline drawer in the same buffer. Theme selection expands into an inline filterable list; moving through choices updates both the live preview and the preview summary line. Background selection is an inline segmented control for `system`, `light`, and `dark`. The preview line stays below the active sections so edits and selectors keep a stable layout.
+
+### TUI Keymaps
+
+| Key | Action |
+|-----|--------|
+| `j` / `Down` | Move down |
+| `k` / `Up` | Move up |
+| `Tab` | Switch focus between Defaults and Schedule |
+| `a` | Add new schedule entry |
+| `e` / `Enter` | Edit selected schedule row or focused default row |
+| `d` / `x` | Delete selected schedule entry |
+| `H` | Hold current theme for this session; press again to release |
+| `t` | Toggle enabled or disabled |
+| `r` | Reload configuration |
+| `?` | Show help |
+| `q` / `Esc` | Close TUI |
+
+### Inline Editing
+
+| Key | Action |
+|-----|--------|
+| `Tab` / `j` / `k` | Move between fields |
+| `0-9` / `:` | Replace the active start or stop time; `14` becomes `14:00` |
+| `Enter` | Open inline theme/background selector for the active field |
+| `S` | Save draft and persist it |
+| `O` | Hold current draft for this session; press again to release |
+| `Esc` | Cancel and restore the preview snapshot; dirty schedule drafts ask for confirmation |
+
+New entries default to the current resolved colorscheme/background. Time defaults come from the displayed chronological schedule: `start` is the stop time of the last displayed entry, and `stop` is the start time of the first displayed entry. Empty schedules default to `08:00`–`18:00`.
+
+### Session Hold
+
+`H` holds the currently resolved theme/background for the rest of the Neovim session. In edit mode, `O` holds the current draft preview. While held, scheduled changes and system background changes do not apply a different theme. Press the same key again to release it. The hold is runtime-only, appears in the TUI/status output, and disappears on restart.
+
+### Theme Resolution Order
+
+Colorful Times resolves the active theme in this order:
+
+1. Runtime session hold, when active
+2. Matching schedule entry
+3. `default.background`
+4. `default.colorscheme` or `default.themes.light` / `default.themes.dark`
+
+If the resolved background is `system`, the plugin keeps a safe fallback first
+and then updates to the detected light or dark background asynchronously.
 
 ## Installation
 
@@ -77,59 +132,6 @@ The schedule manager TUI is fully inline: one compact floating window, one scrat
 | `:ColorfulTimesReload` | Reload configuration from disk |
 | `:ColorfulTimesStatus` | Show the current resolved theme state, including session hold state |
 | `:checkhealth colorful-times` | Run diagnostics |
-
-## Schedule Manager TUI
-
-Run `:ColorfulTimes` to open the interactive manager.
-
-![Colorful Times schedule manager TUI](assets/tui-schedule-manager.png)
-
-Adding or editing opens an inline drawer in the same buffer. Theme selection expands into an inline filterable list; moving through choices updates both the live preview and the preview summary line. Background selection is an inline segmented control for `system`, `light`, and `dark`. The preview line stays below the active sections so edits and selectors keep a stable layout.
-
-### TUI Keymaps
-
-| Key | Action |
-|-----|--------|
-| `j` / `Down` | Move down |
-| `k` / `Up` | Move up |
-| `Tab` | Switch focus between Defaults and Schedule |
-| `a` | Add new schedule entry |
-| `e` / `Enter` | Edit selected schedule row or focused default row |
-| `d` / `x` | Delete selected schedule entry |
-| `H` | Hold current theme for this session; press again to release |
-| `t` | Toggle enabled or disabled |
-| `r` | Reload configuration |
-| `?` | Show help |
-| `q` / `Esc` | Close TUI |
-
-### Inline Editing
-
-| Key | Action |
-|-----|--------|
-| `Tab` / `j` / `k` | Move between fields |
-| `0-9` / `:` | Replace the active start or stop time; `14` becomes `14:00` |
-| `Enter` | Open inline theme/background selector for the active field |
-| `S` | Save draft and persist it |
-| `O` | Hold current draft for this session; press again to release |
-| `Esc` | Cancel and restore the preview snapshot; dirty schedule drafts ask for confirmation |
-
-New entries default to the current resolved colorscheme/background. Time defaults come from the displayed chronological schedule: `start` is the stop time of the last displayed entry, and `stop` is the start time of the first displayed entry. Empty schedules default to `08:00`–`18:00`.
-
-### Session Hold
-
-`H` holds the currently resolved theme/background for the rest of the Neovim session. In edit mode, `O` holds the current draft preview. While held, scheduled changes and system background changes do not apply a different theme. Press the same key again to release it. The hold is runtime-only, appears in the TUI/status output, and disappears on restart.
-
-### Theme Resolution Order
-
-Colorful Times resolves the active theme in this order:
-
-1. Runtime session hold, when active
-2. Matching schedule entry
-3. `default.background`
-4. `default.colorscheme` or `default.themes.light` / `default.themes.dark`
-
-If the resolved background is `system`, the plugin keeps a safe fallback first
-and then updates to the detected light or dark background asynchronously.
 
 ## System Background Detection
 
