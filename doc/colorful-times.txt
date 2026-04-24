@@ -200,7 +200,8 @@ Edit mode keymaps~
     <Enter>        Open inline theme/background selector for active field
     S              Save the draft, apply it, and persist it
     O              Hold current draft for this session; press again to release
-    <Esc>          Cancel and restore the preview snapshot
+    <Esc>          Cancel and restore the preview snapshot; dirty schedule
+                   drafts ask for confirmation
 
 Theme selector keymaps~
     type text      Filter colorschemes
@@ -234,9 +235,6 @@ Add defaults~
     start is the stop time of the last displayed entry, and stop is the start
     time of the first displayed entry. With no entries, the defaults are
     08:00-18:00.
-
-The TUI also shows the theme resolution order inline:
-`schedule entry > default.background > default theme override`
 
 Changes made in the TUI are immediately applied and persisted to disk
 (unless `persist = false`). Runtime preview snapshots and session holds are

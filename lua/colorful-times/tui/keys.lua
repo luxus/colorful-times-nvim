@@ -95,20 +95,6 @@ function M.setup(app)
   )
   map(
     buf,
-    "c",
-    char_or(app, "c", function()
-      -- defaults are edited by focusing Defaults with Tab and pressing Enter
-    end)
-  )
-  map(
-    buf,
-    "b",
-    char_or(app, "b", function()
-      -- defaults are edited by focusing Defaults with Tab and pressing Enter
-    end)
-  )
-  map(
-    buf,
     "H",
     char_or(app, "H", function()
       actions.toggle_hold(app)
@@ -122,13 +108,6 @@ function M.setup(app)
     "u",
     char_or(app, "u", function()
       actions.toggle_hold(app)
-    end)
-  )
-  map(
-    buf,
-    "n",
-    char_or(app, "n", function()
-      -- defaults are edited by focusing Defaults with Tab and pressing Enter
     end)
   )
   map(
@@ -148,16 +127,28 @@ function M.setup(app)
   map(
     buf,
     "y",
-    char_or(app, "y", function()
-      actions.confirm_delete(app)
-    end)
+    function()
+      if app.state.pending_delete or app.state.pending_discard then
+        actions.confirm_prompt(app)
+        return
+      end
+      if in_theme_select(app) then
+        actions.input_char(app, "y")
+      end
+    end
   )
   map(
     buf,
     "n",
-    char_or(app, "n", function()
-      actions.cancel(app)
-    end)
+    function()
+      if app.state.pending_delete or app.state.pending_discard then
+        actions.cancel(app)
+        return
+      end
+      if in_theme_select(app) then
+        actions.input_char(app, "n")
+      end
+    end
   )
   map(buf, "?", function()
     actions.help(app)
@@ -188,7 +179,24 @@ function M.setup(app)
     end
   end)
 
-  for _, char in ipairs({
+  local reserved = {
+    a = true,
+    d = true,
+    e = true,
+    h = true,
+    j = true,
+    k = true,
+    l = true,
+    n = true,
+    q = true,
+    r = true,
+    t = true,
+    u = true,
+    x = true,
+    y = true,
+  }
+
+  local chars = {
     "0",
     "1",
     "2",
@@ -200,19 +208,18 @@ function M.setup(app)
     "8",
     "9",
     ":",
-    "f",
-    "g",
-    "i",
-    "m",
-    "o",
-    "s",
-    "v",
-    "w",
-    "z",
     "-",
     "_",
     ".",
-  }) do
+  }
+  for byte = string.byte("a"), string.byte("z") do
+    local char = string.char(byte)
+    if not reserved[char] then
+      chars[#chars + 1] = char
+    end
+  end
+
+  for _, char in ipairs(chars) do
     map(buf, char, function()
       actions.input_char(app, char)
     end)

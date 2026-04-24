@@ -64,7 +64,7 @@ Here are the default options.
 }
 ```
 
-The schedule manager TUI is fully inline: one floating window, one scratch buffer, live theme/background preview, and no extra edit popup.
+The schedule manager TUI is fully inline: one compact floating window, one scratch buffer, live theme/background preview, inline selectors, and no extra edit popup.
 
 ## Commands
 
@@ -82,28 +82,9 @@ The schedule manager TUI is fully inline: one floating window, one scratch buffe
 
 Run `:ColorfulTimes` to open the interactive manager.
 
-```
-  ● ENABLED  Colorful Times 2.3.0
-  Active  tokyonight-night • bg dark
-  Source  schedule  · requested bg dark
-  00:00 ···━━━━━━┃━━━━━━━━······················ 24:00  now 22:30
-  ────────────────────────────────────────────────────────────
-  DEFAULTS
-    COLORSCHEME  default
-    BACKGROUND   system
-    LIGHT        dayfox
-    DARK         nightfox
-  ────────────────────────────────────────────────────────────
-  Schedule
-     START   STOP    COLORSCHEME                     BG        STATE
-  ▸  08:00   18:00   tokyonight-day                  light
-     18:00   08:00   tokyonight-night                dark      ● active
-  ────────────────────────────────────────────────────────────
-  Tab switch panel  j/k move  <CR> edit  a add schedule  d delete schedule
-  H hold/release session theme  t toggle  r reload  q quit
-```
+![Colorful Times schedule manager TUI](assets/tui-schedule-manager.png)
 
-Adding or editing opens an inline drawer in the same buffer. Theme selection expands into an inline filterable list; moving through choices previews live. Background selection is an inline segmented control for `system`, `light`, and `dark`.
+Adding or editing opens an inline drawer in the same buffer. Theme selection expands into an inline filterable list; moving through choices updates both the live preview and the preview summary line. Background selection is an inline segmented control for `system`, `light`, and `dark`. The preview line stays below the active sections so edits and selectors keep a stable layout.
 
 ### TUI Keymaps
 
@@ -130,7 +111,7 @@ Adding or editing opens an inline drawer in the same buffer. Theme selection exp
 | `Enter` | Open inline theme/background selector for the active field |
 | `S` | Save draft and persist it |
 | `O` | Hold current draft for this session; press again to release |
-| `Esc` | Cancel and restore the preview snapshot |
+| `Esc` | Cancel and restore the preview snapshot; dirty schedule drafts ask for confirmation |
 
 New entries default to the current resolved colorscheme/background. Time defaults come from the displayed chronological schedule: `start` is the stop time of the last displayed entry, and `stop` is the start time of the first displayed entry. Empty schedules default to `08:00`–`18:00`.
 

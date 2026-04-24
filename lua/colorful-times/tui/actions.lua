@@ -16,14 +16,16 @@ local function render(app)
   end
 end
 
-local function clamp_cursor(state)
-  local count = #view_model.sorted_schedule(ct.config.schedule)
+local function clamp_cursor(state, rows)
+  rows = rows or view_model.sorted_schedule(ct.config.schedule)
+  local count = #rows
   state.cursor = math.max(1, math.min(math.max(1, count), state.cursor))
+  return rows
 end
 
 local function selected_row(state)
-  clamp_cursor(state)
-  return view_model.selected_row(ct.config.schedule, state.cursor)
+  local rows = clamp_cursor(state)
+  return rows[state.cursor]
 end
 
 local function resolved_draft_background(state)
@@ -41,6 +43,27 @@ local function apply_draft_preview(state)
     return
   end
   preview.apply(state.draft.colorscheme, state.draft.background, resolved_draft_background(state))
+end
+
+local function preview_theme_choice(state, choice)
+  if not state.draft or not choice then
+    return
+  end
+
+  if choice == selectors.fallback_label() then
+    state.draft.colorscheme = nil
+    if state.selector_snapshot then
+      preview.apply(
+        state.selector_snapshot.colorscheme,
+        state.selector_snapshot.background,
+        state.selector_snapshot.resolved_background
+      )
+    end
+    return
+  end
+
+  state.draft.colorscheme = choice
+  preview.apply(choice, state.draft.background, resolved_draft_background(state))
 end
 
 local function save_and_refresh()
@@ -65,7 +88,38 @@ end
 
 local function clear_pending(state)
   state.pending_delete = false
+  state.pending_discard = false
   state.message = nil
+end
+
+local set_mode_browse
+
+local function draft_dirty(state)
+  if not state.draft then
+    return false
+  end
+  if state.draft_kind == "add" then
+    return true
+  end
+  if state.draft_kind ~= "edit" or not state.edit_index then
+    return false
+  end
+
+  local original = ct.config.schedule and ct.config.schedule[state.edit_index]
+  if not original then
+    return false
+  end
+
+  return state.draft.start ~= original.start
+    or state.draft.stop ~= original.stop
+    or state.draft.colorscheme ~= original.colorscheme
+    or state.draft.background ~= (original.background or ct.config.default.background)
+end
+
+local function discard_edit(app)
+  preview.restore()
+  set_mode_browse(app.state)
+  render(app)
 end
 
 local function normalize_time(value)
@@ -108,7 +162,7 @@ local function finish_time_input(state)
   state.time_input_field = nil
 end
 
-local function set_mode_browse(state)
+set_mode_browse = function(state)
   ui_state.reset_edit(state)
   clamp_cursor(state)
 end
@@ -130,16 +184,7 @@ function M.move(app, delta)
   elseif state.mode == ui_state.modes.theme_select then
     if #state.theme_items > 0 then
       state.theme_cursor = math.max(1, math.min(#state.theme_items, state.theme_cursor + delta))
-      local choice = state.theme_items[state.theme_cursor]
-      if choice and choice ~= selectors.fallback_label() then
-        preview.apply(choice, state.draft.background, resolved_draft_background(state))
-      elseif state.selector_snapshot then
-        preview.apply(
-          state.selector_snapshot.colorscheme,
-          state.selector_snapshot.background,
-          state.selector_snapshot.resolved_background
-        )
-      end
+      preview_theme_choice(state, state.theme_items[state.theme_cursor])
     end
   elseif state.mode == ui_state.modes.bg_select then
     M.cycle_background(app, delta)
@@ -223,6 +268,12 @@ end
 function M.cancel(app)
   local state = app.state
 
+  if state.pending_discard then
+    clear_pending(state)
+    render(app)
+    return
+  end
+
   if state.mode == ui_state.modes.theme_select or state.mode == ui_state.modes.bg_select then
     if state.selector_snapshot and state.draft then
       state.draft.colorscheme = state.selector_snapshot.colorscheme
@@ -246,9 +297,14 @@ function M.cancel(app)
   end
 
   if state.mode == ui_state.modes.edit then
-    preview.restore()
-    set_mode_browse(state)
-    render(app)
+    finish_time_input(state)
+    if draft_dirty(state) then
+      state.pending_discard = true
+      state.message = "Discard unsaved changes? y discard / n or Esc keep editing"
+      render(app)
+      return
+    end
+    discard_edit(app)
     return
   end
 
@@ -310,10 +366,7 @@ function M.enter_theme_select(app)
   state.theme_items = selectors.filtered_themes(state.theme_filter, state.draft.colorscheme, false)
   state.theme_cursor = selectors.index_of(state.theme_items, state.draft.colorscheme)
 
-  local choice = state.theme_items[state.theme_cursor]
-  if choice then
-    preview.apply(choice, state.draft.background, resolved_draft_background(state))
-  end
+  preview_theme_choice(state, state.theme_items[state.theme_cursor])
 
   render(app)
 end
@@ -404,9 +457,7 @@ local function begin_theme_select(app, kind, current, background, allow_fallback
   state.theme_cursor = selectors.index_of(state.theme_items, current)
 
   local choice = state.theme_items[state.theme_cursor]
-  if choice and choice ~= selectors.fallback_label() then
-    preview.apply(choice, state.draft.background, resolved_draft_background(state))
-  end
+  preview_theme_choice(state, choice)
 
   render(app)
 end
@@ -483,6 +534,10 @@ end
 function M.confirm(app)
   local state = app.state
 
+  if state.pending_discard then
+    return
+  end
+
   if state.pending_delete then
     return
   end
@@ -520,6 +575,17 @@ function M.confirm(app)
   end
 end
 
+function M.confirm_prompt(app)
+  local state = app.state
+  if state.pending_discard then
+    discard_edit(app)
+    return
+  end
+  if state.pending_delete then
+    M.confirm_delete(app)
+  end
+end
+
 function M.cycle_background(app, delta)
   local state = app.state
   if not state.draft then
@@ -545,13 +611,10 @@ function M.input_char(app, char)
 
   if state.mode == ui_state.modes.theme_select then
     state.theme_filter = state.theme_filter .. char
-    state.theme_items =
-      selectors.filtered_themes(state.theme_filter, state.draft and state.draft.colorscheme, state.theme_allow_fallback)
+    local current = state.selector_snapshot and state.selector_snapshot.colorscheme or (state.draft and state.draft.colorscheme)
+    state.theme_items = selectors.filtered_themes(state.theme_filter, current, state.theme_allow_fallback)
     state.theme_cursor = 1
-    local choice = state.theme_items[state.theme_cursor]
-    if choice and state.draft and choice ~= selectors.fallback_label() then
-      preview.apply(choice, state.draft.background, resolved_draft_background(state))
-    end
+    preview_theme_choice(state, state.theme_items[state.theme_cursor])
     render(app)
     return
   end
@@ -587,13 +650,10 @@ function M.backspace(app)
 
   if state.mode == ui_state.modes.theme_select then
     state.theme_filter = state.theme_filter:sub(1, math.max(0, #state.theme_filter - 1))
-    state.theme_items =
-      selectors.filtered_themes(state.theme_filter, state.draft and state.draft.colorscheme, state.theme_allow_fallback)
+    local current = state.selector_snapshot and state.selector_snapshot.colorscheme or (state.draft and state.draft.colorscheme)
+    state.theme_items = selectors.filtered_themes(state.theme_filter, current, state.theme_allow_fallback)
     state.theme_cursor = 1
-    local choice = state.theme_items[state.theme_cursor]
-    if choice and state.draft and choice ~= selectors.fallback_label() then
-      preview.apply(choice, state.draft.background, resolved_draft_background(state))
-    end
+    preview_theme_choice(state, state.theme_items[state.theme_cursor])
     render(app)
     return
   end

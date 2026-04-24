@@ -9,9 +9,17 @@ local MIN_HEIGHT = 16
 ---@return table
 function M.current_ui()
   local ui = vim.api.nvim_list_uis()[1] or {}
+  local width = ui.width
+  local height = ui.height
+  if not width or width <= 0 then
+    width = vim.o.columns
+  end
+  if not height or height <= 0 then
+    height = vim.o.lines
+  end
   return {
-    width = math.max(ui.width or 0, vim.o.columns, MIN_WIDTH + 4),
-    height = math.max(ui.height or 0, vim.o.lines - 2, MIN_HEIGHT + 4),
+    width = math.max(1, width or MIN_WIDTH),
+    height = math.max(1, height or MIN_HEIGHT),
   }
 end
 
@@ -29,8 +37,10 @@ end
 ---@return table
 function M.window_config(lines)
   local ui = M.current_ui()
-  local width = math.min(math.max(MIN_WIDTH, widest_line(lines) + 2), math.max(MIN_WIDTH, ui.width - 4))
-  local height = math.min(math.max(MIN_HEIGHT, #lines), math.max(MIN_HEIGHT, ui.height - 4))
+  local max_width = math.max(1, ui.width - 4)
+  local max_height = math.max(1, ui.height - 4)
+  local width = math.min(math.max(1, widest_line(lines) + 2), max_width)
+  local height = math.min(math.max(1, #lines), max_height)
 
   return {
     relative = "editor",

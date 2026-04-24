@@ -64,6 +64,32 @@ local function entry_active(entry, time_mins)
   return current >= start_time and current < stop_time
 end
 
+---@param config ColorfulTimes.Config
+---@param ui_state ColorfulTimes.TuiState
+---@return boolean
+local function draft_dirty(config, ui_state)
+  local draft = ui_state.draft
+  if not draft then
+    return false
+  end
+  if ui_state.draft_kind == "add" then
+    return true
+  end
+  if ui_state.draft_kind ~= "edit" or not ui_state.edit_index then
+    return false
+  end
+
+  local original = config.schedule and config.schedule[ui_state.edit_index]
+  if not original then
+    return false
+  end
+
+  return draft.start ~= original.start
+    or draft.stop ~= original.stop
+    or draft.colorscheme ~= original.colorscheme
+    or draft.background ~= original.background
+end
+
 ---@param raw ColorfulTimes.ScheduleEntry[]
 ---@return table[]
 function M.sorted_schedule(raw)
@@ -134,6 +160,7 @@ function M.build(config, status, ui_state)
     row_count = #rows,
     now = now,
     now_label = M.format_time(now),
+    dirty = draft_dirty(config, ui_state),
     status = status,
     ui = ui_state,
   }

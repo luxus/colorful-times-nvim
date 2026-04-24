@@ -32,6 +32,7 @@ M.default_fields = { "colorscheme", "background", "light", "dark" }
 ---@field selector_snapshot table|nil
 ---@field system_background string
 ---@field pending_delete boolean
+---@field pending_discard boolean
 ---@field message string|nil
 
 ---@return ColorfulTimes.TuiState
@@ -54,6 +55,7 @@ function M.new()
     selector_snapshot = nil,
     system_background = vim.o.background or "dark",
     pending_delete = false,
+    pending_discard = false,
     message = nil,
   }
 end
@@ -96,6 +98,7 @@ function M.reset_edit(state)
   state.theme_allow_fallback = false
   state.selector_snapshot = nil
   state.pending_delete = false
+  state.pending_discard = false
   state.message = nil
 end
 
