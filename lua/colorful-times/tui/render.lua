@@ -129,20 +129,13 @@ local function frame_row(text)
   return "    " .. fit(text, math.max(1, PANEL_WIDTH - 2))
 end
 
-local function centered(text)
-  local width = math.max(1, PANEL_WIDTH)
-  local display_width = vim.fn.strdisplaywidth(text)
-  local left = math.max(0, math.floor((width - display_width) / 2))
-  return "  " .. fit(string.rep(" ", left) .. text, width)
-end
-
 local function centered_full(text)
   local display_width = vim.fn.strdisplaywidth(text)
   local left = math.max(0, math.floor((PANEL_WIDTH - display_width) / 2))
   return "  " .. fit(string.rep(" ", left) .. text, PANEL_WIDTH)
 end
 
-local function timeline(rows, now, now_label)
+local function timeline(rows, now)
   local prefix = "00:00 "
   local suffix = " 24:00"
   TIMELINE_WIDTH = math.max(
@@ -279,7 +272,7 @@ local function header(lines, marks, vm)
   cursor = mark_text(marks, source_lnum, source_text, "requested bg", "ColorfulTimesAccent", cursor)
   mark_text(marks, source_lnum, source_text, requested, "ColorfulTimesWarn", cursor)
 
-  local timeline_text, timeline_start, timeline_width = timeline(vm.rows, vm.now, vm.now_label)
+  local timeline_text, timeline_start, timeline_width = timeline(vm.rows, vm.now)
   local timeline_lnum = add(lines, frame_row(timeline_text))
   marks[#marks + 1] = {
     line = timeline_lnum,
@@ -363,7 +356,7 @@ local function schedule_table(lines, marks, vm, cols)
   local frame_group = focused and "ColorfulTimesFrameFocus" or "ColorfulTimesFrame"
   local title_lnum = add(lines, frame_title("SCHEDULE", focused))
   marks[#marks + 1] = { line = title_lnum, group = frame_group, start = 2, stop = -1 }
-  local header_lnum = add(
+  add(
     lines,
     frame_row(
       view_model.pad("", 3)
