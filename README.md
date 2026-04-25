@@ -199,7 +199,7 @@ ct.unpin_session()
 
 Colorful Times is designed to stay close to the cost of the simplest possible colorscheme switcher while providing scheduling, persistence, system appearance sync, commands, status output, and the interactive manager TUI.
 
-The repository includes a small independent reference implementation in `bench/minimal-switcher.lua`. It is intentionally kept under 50 lines and does not depend on Colorful Times. The benchmark compares Colorful Times against that reference across empty, scheduled, disabled, and hourly-schedule configurations.
+This benchmark was motivated by community feedback that time-based themes can be done in a very small amount of Lua, including [somnamboola's comment](https://www.reddit.com/r/neovim/comments/1suh8xr/comment/oi6w3yj/): “lmao, I did time based themes with 20 lines of lua”. That is a fair comparison point, so the repository includes a small independent reference implementation in `bench/minimal-switcher.lua`. It is intentionally kept under 50 lines and does not depend on Colorful Times. The benchmark compares Colorful Times against that reference across empty, scheduled, disabled, and hourly-schedule configurations.
 
 Latest benchmark result from the optimization branch:
 
