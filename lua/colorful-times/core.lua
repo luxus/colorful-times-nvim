@@ -150,6 +150,14 @@ local function apply_sync(cs, bg)
   pcall(vim.cmd.colorscheme, cs)
 end
 
+local function apply_when_safe(cs, bg)
+  if vim.in_fast_event and not vim.in_fast_event() then
+    apply_sync(cs, bg)
+  else
+    vim.schedule(function() apply_sync(cs, bg) end)
+  end
+end
+
 ---Resolve a colorscheme for a detected light/dark background.
 ---@param base_cs string
 ---@param detected_bg "light"|"dark"
@@ -174,12 +182,12 @@ function M.apply_colorscheme()
     if concrete_bg ~= "light" and concrete_bg ~= "dark" then
       concrete_bg = bg ~= "system" and bg or (_previous_bg or vim.o.background or "dark")
     end
-    vim.schedule(function() apply_sync(cs, concrete_bg) end)
+    apply_when_safe(cs, concrete_bg)
     return
   end
 
   if bg ~= "system" then
-    vim.schedule(function() apply_sync(cs, bg) end)
+    apply_when_safe(cs, bg)
     return
   end
 
@@ -187,12 +195,12 @@ function M.apply_colorscheme()
   local fallback = _previous_bg or vim.o.background or "dark"
   local fallback_cs = resolve_detected_colorscheme(cs, fallback, use_default_theme_overrides)
 
-  vim.schedule(function() apply_sync(fallback_cs, fallback) end)
+  apply_when_safe(fallback_cs, fallback)
 
   system().get_background(function(detected)
     if detected ~= _previous_bg then
       local real_cs = resolve_detected_colorscheme(cs, detected, use_default_theme_overrides)
-      vim.schedule(function() apply_sync(real_cs, detected) end)
+      apply_when_safe(real_cs, detected)
     end
   end, fallback)
 end

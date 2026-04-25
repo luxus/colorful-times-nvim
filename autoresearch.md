@@ -90,4 +90,6 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Discarded: localizing `vim.api` regressed to `delta_us=6.930664`; global lookup overhead is not material here.
 - Discarded: localizing `nvim_create_user_command` improved `command_us` slightly but worsened primary `delta_us` to `-60.694336`; command registration is not part of the current primary target.
 - Segment change: startup/setup parity is achieved (`delta_us=-75.263672`, `startup_ratio_x=0.834160`). The next segment optimizes `apply_delta_us` to keep actual switch/apply cost near the minimal reference as well.
+- Apply baseline after segment reset: `apply_delta_us=17.763200`.
+- Kept: scalar theme resolution for hot paths avoids allocating a context table in `apply_colorscheme()` and `resolve_theme()`. This reduced `apply_delta_us` to `4.365283` while keeping startup faster than the minimal reference.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
