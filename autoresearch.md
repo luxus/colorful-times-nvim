@@ -1,56 +1,83 @@
-# Startup Optimization Rules
+# Autoresearch: Match a Minimal Colorscheme Switcher
 
-## Status: ✅ COMPLETE
+## Objective
 
-**Final Result**: ~41% improvement (6.88ms → ~4.1ms)
-**Approach**: `vim.defer_fn(0)` for zero-blocking startup
+Optimize Colorful Times so its comparable startup and switching costs approach a minimal Neovim colorscheme switcher implemented in under 50 lines of Lua (`bench/minimal-switcher.lua`). The benchmark compares the public user-facing path (`require("colorful-times").setup(opts)`) with the reference switcher across representative configurations, rather than optimizing a single artificial case.
 
-## What Was Optimized
+The goal is not to remove Colorful Times features or special-case the benchmark. The reference switcher exists only as a speed target for the simplest shared behavior: accept a default colorscheme/background, optionally choose an active schedule entry, and apply the colorscheme.
 
-All blocking I/O and heavy work moved to deferred execution:
-- `state.load()` - file I/O deferred
-- Autocmd registration - deferred
-- First colorscheme application - deferred  
-- Timer creation - deferred
+## Metrics
 
-## What's Left (Practical Limit Reached)
+- **Primary**: `delta_us` (µs, lower is better) — median Colorful Times startup/setup time minus median minimal-switcher startup/setup time, averaged across benchmark scenarios.
+- **Secondary**:
+  - `ct_startup_us`, `minimal_startup_us`, `startup_ratio_x` — absolute setup costs and ratio.
+  - `ct_resolve_us`, `minimal_resolve_us`, `resolve_delta_us` — schedule/theme resolution cost per call.
+  - `ct_apply_us`, `minimal_apply_us`, `apply_delta_us` — full apply cost per call with synchronous scheduling in the benchmark harness.
+  - `command_us` — cost to source `plugin/colorful-times.lua` and register user commands.
 
-The remaining ~4.1ms is:
-- `require_ms` (~2.3ms): Loading init.lua → core.lua + submodules (via metatable)
-- `setup_ms` (~1.8ms): Validation + `vim.deepcopy` + `defer_fn` setup
+## How to Run
 
-Cannot optimize further without:
-1. Removing validation (risk: silent failures)
-2. Removing `vim.deepcopy` (risk: config mutation bugs)
-3. Removing features (schedule validation needs schedule module)
+```bash
+./autoresearch.sh
+```
 
-## Experiments Attempted (Regressions)
+The script runs headless Neovim with isolated XDG directories and prints `METRIC name=value` lines. Defaults are tuned to keep iterations fast while still using medians:
 
-| Experiment | Result | Lesson |
-|------------|--------|--------|
-| Split validation (fast/deferred) | +22% slower | Small schedules already fast |
-| Lazy submodule loading with getters | +23% slower | Getter overhead > benefit |
-| Shallow copy config merging | +27% slower | `vim.deepcopy` is C-optimized |
-| Closure-based lazy loading | +22% slower | Metatable `__index` is optimal |
-| `vim.validate()` with `pcall` | +4% slower | pcall overhead cancels benefit |
-| Function-level lazy loading | +24% slower | Schedule still needed for validation |
+- `CT_BENCH_SAMPLES=31`
+- `CT_BENCH_WARMUP=3`
+- `CT_BENCH_APPLY_ITERS=20`
+- `CT_BENCH_RESOLVE_ITERS=20000`
 
-## Comprehensive Audit Results
+Correctness checks run automatically through `autoresearch.checks.sh` after passing benchmark runs:
 
-| Operation | Time | Assessment |
-|-----------|------|------------|
-| Startup | 4.17ms | ✅ Practical limit reached |
-| parse_time (cached) | 0.09µs | ✅ Negligible |
-| next_change_at | 23.7µs | ✅ 20x faster than baseline |
-| preprocess (20 entries) | 79.6µs | ✅ Acceptable |
-| get_active_entry | 194.9µs | ✅ O(n), typical schedules <20 |
+```bash
+nvim --headless \
+  -u tests/minimal_init.vim \
+  -c "PlenaryBustedDirectory tests/ { minimal_init = './tests/minimal_init.vim' }"
+```
 
-## Conclusion
+## Benchmark Design
 
-**4.1ms is the practical limit** for this architecture with current features. All promising optimization paths explored:
-- ✅ Startup: Zero-blocking I/O via `vim.defer_fn(0)`
-- ✅ Runtime: O(log n) boundary table for next_change_at
-- ✅ Caching: Multiple levels (time, schedule, colorschemes)
-- ✅ Tests: 101 passing, 0 failures
+The primary benchmark measures `require("colorful-times").setup(opts)` and `require("bench.minimal-switcher").setup(opts)` from cleared Lua module caches. It averages three scenarios:
 
-**No further optimizations viable** without removing features or accepting significant complexity for marginal gains.
+1. Enabled plugin with no schedule and a dark default background.
+2. Enabled plugin with two day/night schedule entries.
+3. Disabled plugin with one schedule entry and a light default background.
+
+The benchmark intentionally avoids persistence, external system-appearance detection, and user-local state by setting `persist = false` and isolating XDG directories. This keeps the workload deterministic and focused on startup/setup overhead.
+
+The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediately so the measured call includes the real background assignment and `:colorscheme` command. This is a secondary metric only; the primary metric remains startup/setup delta.
+
+## Files in Scope
+
+- `lua/colorful-times/init.lua` — public module, lazy loading, default config.
+- `lua/colorful-times/core.lua` — setup, validation, runtime scheduling, theme resolution, apply path.
+- `lua/colorful-times/schedule.lua` — schedule parsing, validation, active-entry lookup, next-change lookup.
+- `lua/colorful-times/state.lua` — persistence loading/merging/saving; changes allowed only if tests continue to cover persisted behavior.
+- `lua/colorful-times/system.lua` — system background detection; avoid touching unless it directly affects setup overhead without changing behavior.
+- `plugin/colorful-times.lua` — command registration cost.
+- `bench/minimal-switcher.lua` — reference implementation; keep under 50 lines and do not slow it down to make Colorful Times look better.
+- `bench/autoresearch_minimal_compare.lua` — benchmark harness; changes must improve measurement quality, not favor Colorful Times.
+- `tests/` — add or update tests when behavior changes.
+- `doc/colorful-times.txt` and `README.md` — update only if public behavior changes.
+
+## Off Limits
+
+- Do not remove documented features to win the benchmark.
+- Do not special-case benchmark inputs, environment variables, paths, or module names in production code.
+- Do not weaken tests, skip correctness checks, or alter the minimal reference to make Colorful Times look faster.
+- Do not introduce new runtime dependencies.
+- Do not optimize solely for empty schedules; the two-entry and disabled scenarios must stay representative.
+
+## Constraints
+
+- Neovim >= 0.12 behavior must remain supported.
+- All tests must pass after kept experiments.
+- Public API behavior and command names must remain compatible unless the user explicitly approves a breaking change.
+- Timer and async rules from `AGENTS.md` apply: use `vim.schedule()` for main-thread Vim API work from async callbacks, close timers safely, and avoid overlapping async work.
+- Favor simple, maintainable changes. A small speedup is not worth fragile code.
+
+## What's Been Tried
+
+- Fresh benchmark and minimal reference created for this target. Baseline is pending.
+- Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that lazy submodule getters, shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
