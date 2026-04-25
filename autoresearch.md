@@ -150,4 +150,7 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Discarded: removing explicit nil defaults from the public config table regressed to `delta_us=-94.979492`; keep them for readability.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
 - Discarded: localizing `cfg.default` inside `resolve_theme_parts()` regressed to `apply_delta_us=2.395522`; keep current direct lookups.
-- Segment change pending: apply is at parity/noise under alternating paired measurement. Switch primary back to stable paired `delta_us` to evaluate only structural startup splits from the remaining backlog, keeping `apply_delta_us` and `command_us` as guardrails.
+- Segment change: apply is at parity/noise under alternating paired measurement. Switched primary back to stable paired `delta_us` to evaluate startup structure, keeping `apply_delta_us` and `command_us` as guardrails. Baseline `delta_us=-107.785400`.
+- Discarded: grouping `opts.default` validation around one local default table regressed to `delta_us=-77.902002`; keep existing direct checks.
+- Discarded: lazy access to `vim.uv` in timer-start paths regressed to `delta_us=-93.674902`; keep top-level `local uv = vim.uv`.
+- Experiment pending: replace setup validation `ipairs(opts.schedule)` with a numeric loop to reduce iterator overhead for the 24-entry scenario.

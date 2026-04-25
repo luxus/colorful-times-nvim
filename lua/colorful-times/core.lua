@@ -531,8 +531,8 @@ local function validate(opts)
     if type(opts.schedule) ~= "table" then
       return false, "schedule must be an array"
     end
-    for i, entry in ipairs(opts.schedule) do
-      local ok, err = validate_schedule_entry(entry)
+    for i = 1, #opts.schedule do
+      local ok, err = validate_schedule_entry(opts.schedule[i])
       if not ok then return false, string.format("schedule[%d]: %s", i, err) end
     end
   end
