@@ -151,11 +151,7 @@ local function apply_sync(cs, bg)
 end
 
 local function apply_when_safe(cs, bg)
-  if vim.in_fast_event and not vim.in_fast_event() then
-    apply_sync(cs, bg)
-  else
-    vim.schedule(function() apply_sync(cs, bg) end)
-  end
+  vim.schedule(function() apply_sync(cs, bg) end)
 end
 
 ---Resolve a colorscheme for a detected light/dark background.
