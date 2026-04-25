@@ -303,6 +303,30 @@ local function minimal_apply_once()
   return total / #scenarios
 end
 
+local function ct_apply_scenario_once(opts)
+  vim.schedule = function(fn) fn() end
+  local ct = setup_ct(opts)
+  local t0 = now_us()
+  for _ = 1, apply_iters do
+    ct.apply_colorscheme()
+  end
+  local elapsed = (now_us() - t0) / apply_iters
+  vim.schedule = orig_schedule
+  clear_ct()
+  return elapsed
+end
+
+local function minimal_apply_scenario_once(opts)
+  local mini = setup_minimal(opts)
+  local t0 = now_us()
+  for _ = 1, apply_iters do
+    mini.apply(advance_min())
+  end
+  local elapsed = (now_us() - t0) / apply_iters
+  clear_minimal()
+  return elapsed
+end
+
 local function collect_apply_pair()
   local ct_values, minimal_values, delta_values = {}, {}, {}
   for _ = 1, warmup do
@@ -323,6 +347,26 @@ local function collect_apply_pair()
   local delta_p25 = percentile_sorted(delta_values, 0.25)
   local delta_p75 = percentile_sorted(delta_values, 0.75)
   return delta, median(ct_values), median(minimal_values), delta_p25, delta_p75
+end
+
+local function collect_apply_scenario_delta(opts)
+  local delta_values = {}
+  for _ = 1, warmup do
+    ct_apply_scenario_once(opts)
+    minimal_apply_scenario_once(opts)
+  end
+  for i = 1, samples do
+    local ct_value, minimal_value
+    if i % 2 == 0 then
+      minimal_value = minimal_apply_scenario_once(opts)
+      ct_value = ct_apply_scenario_once(opts)
+    else
+      ct_value = ct_apply_scenario_once(opts)
+      minimal_value = minimal_apply_scenario_once(opts)
+    end
+    delta_values[i] = ct_value - minimal_value
+  end
+  return median(delta_values)
 end
 
 local function command_once()
@@ -349,6 +393,10 @@ end
 local ct_resolve_us = collect(ct_resolve_once)
 local minimal_resolve_us = collect(minimal_resolve_once)
 local apply_delta_us, ct_apply_us, minimal_apply_us, apply_delta_p25_us, apply_delta_p75_us = collect_apply_pair()
+local scenario_apply_deltas = {}
+for i, key in ipairs(scenario_metric_keys) do
+  scenario_apply_deltas[key] = collect_apply_scenario_delta(scenarios[i])
+end
 local command_us = collect(command_once)
 local ratio_x = ct_startup_us / minimal_startup_us
 local resolve_delta_us = ct_resolve_us - minimal_resolve_us
@@ -376,6 +424,10 @@ local metrics = {
   { "apply_delta_p25_us", apply_delta_p25_us },
   { "apply_delta_p75_us", apply_delta_p75_us },
   { "apply_delta_iqr_us", apply_delta_iqr_us },
+  { "apply_delta_empty_us", scenario_apply_deltas.empty },
+  { "apply_delta_two_entry_us", scenario_apply_deltas.two_entry },
+  { "apply_delta_disabled_us", scenario_apply_deltas.disabled },
+  { "apply_delta_hourly_us", scenario_apply_deltas.hourly },
   { "command_us", command_us },
 }
 
