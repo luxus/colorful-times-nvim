@@ -79,5 +79,6 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 
 ## What's Been Tried
 
-- Fresh benchmark and minimal reference created for this target. Baseline is pending.
+- Baseline: `delta_us=460.916992`, `ct_startup_us=931.777995`, `minimal_startup_us=470.861003`, `startup_ratio_x=1.978881`.
+- Kept: lazy-loading `state.lua` and `system.lua` from `core.lua` reduced `delta_us` to `41.138672` and `startup_ratio_x` to `1.087762`. This worked because the primary setup path uses `persist=false` and non-system backgrounds, so persistence and system detection are not needed at require time.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that lazy submodule getters, shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.

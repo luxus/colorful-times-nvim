@@ -2,11 +2,16 @@
 -- Streamlined core logic with unified timer management
 
 local M        = require("colorful-times")
-local schedule = require("colorful-times.schedule")
 local uv       = vim.uv
 
+local schedule_mod
 local system_mod
 local state_mod
+
+local function schedule()
+  schedule_mod = schedule_mod or require("colorful-times.schedule")
+  return schedule_mod
+end
 
 local function system()
   system_mod = system_mod or require("colorful-times.system")
@@ -91,8 +96,9 @@ local function resolve_theme_context()
   end
 
   local current_mins = now_mins()
-  _parsed_schedule = _parsed_schedule or schedule.preprocess(cfg.schedule, cfg.default.background)
-  local active = schedule.get_active_entry(_parsed_schedule, current_mins)
+  local sched = schedule()
+  _parsed_schedule = _parsed_schedule or sched.preprocess(cfg.schedule, cfg.default.background)
+  local active = sched.get_active_entry(_parsed_schedule, current_mins)
 
   if active then
     return {
@@ -296,8 +302,9 @@ local function needs_system_poll()
   end
 
   local current_mins = now_mins()
-  _parsed_schedule = _parsed_schedule or schedule.preprocess(M.config.schedule, M.config.default.background)
-  local active = schedule.get_active_entry(_parsed_schedule, current_mins)
+  local sched = schedule()
+  _parsed_schedule = _parsed_schedule or sched.preprocess(M.config.schedule, M.config.default.background)
+  local active = sched.get_active_entry(_parsed_schedule, current_mins)
   return (active and active.background or M.config.default.background) == "system"
 end
 
@@ -310,8 +317,9 @@ local function arm_schedule_timer()
   if not M.config.enabled then return end
 
   -- Use cached parsed schedule for efficiency
-  _parsed_schedule = _parsed_schedule or schedule.preprocess(M.config.schedule, M.config.default.background)
-  local diff = schedule.next_change_at(_parsed_schedule, now_mins())
+  local sched = schedule()
+  _parsed_schedule = _parsed_schedule or sched.preprocess(M.config.schedule, M.config.default.background)
+  local diff = sched.next_change_at(_parsed_schedule, now_mins())
   if not diff then return end
 
   _timers.schedule = uv.new_timer()
@@ -474,7 +482,7 @@ local function validate(opts)
       return false, "schedule must be an array"
     end
     for i, entry in ipairs(opts.schedule) do
-      local ok, err = schedule.validate_entry(entry)
+      local ok, err = schedule().validate_entry(entry)
       if not ok then return false, string.format("schedule[%d]: %s", i, err) end
     end
   end
