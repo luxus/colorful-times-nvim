@@ -156,7 +156,8 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Kept but weak: replacing setup validation `ipairs(opts.schedule)` with a numeric loop improved one run from `-107.785400` to `-111.995996`; no-code confirmation reran worse at `-86.806396`, reverting back to `ipairs` alone worsened at `-81.431348`, and reverting it together with the hoisted defer callback worsened at `-87.729297`. Keep numeric loop for now; signal remains noisy.
 - Discarded: binding `opts.schedule` to a local before the validation loop regressed to `delta_us=-83.341748`; keep the numeric loop exactly as committed.
 - Benchmark stability change: increased default samples from 21 to 31 to reduce noise before more sub-10µs startup experiments. New 31-sample baseline: `delta_us=-92.008154`, `apply_delta_us=1.292185`, `command_us=56.337500`.
-- Benchmark stability change pending: increase startup iterations per sample from 5 to 9 to reduce startup noise before deciding on weak kept setup changes.
+- Benchmark stability change: increased startup iterations per sample from 5 to 9 to reduce startup noise. New 31×9 startup baseline: `delta_us=-62.120334`, `apply_delta_us=2.561667`, `command_us=57.558398`.
+- Experiment pending: under the 31×9 benchmark, re-test reverting the two weak kept setup changes (numeric validation loop and hoisted defer callback) together.
 - Discarded: localizing core autocmd API functions regressed to `delta_us=-90.428906`; keep direct `vim.api` calls.
 - Discarded: hoisting focus autocmd callbacks/options regressed to `delta_us=-84.466602`; keep inline setup callbacks/options.
 - Kept but weak: hoisting the deferred setup callback into a module-local function improved one run from `-92.008154` to `-104.991650`; no-code confirmation reran worse at `-69.335498`, reverting back inline alone worsened at `-77.100049`, and reverting it together with the numeric loop worsened at `-87.729297`. Keep hoist for now; signal remains noisy.

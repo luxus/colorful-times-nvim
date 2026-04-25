@@ -531,8 +531,8 @@ local function validate(opts)
     if type(opts.schedule) ~= "table" then
       return false, "schedule must be an array"
     end
-    for i = 1, #opts.schedule do
-      local ok, err = validate_schedule_entry(opts.schedule[i])
+    for i, entry in ipairs(opts.schedule) do
+      local ok, err = validate_schedule_entry(entry)
       if not ok then return false, string.format("schedule[%d]: %s", i, err) end
     end
   end
@@ -561,17 +561,6 @@ local function validate(opts)
   end
 
   return true
-end
-
-local function run_deferred_setup()
-  load_persisted_state()
-  if not M.config.enabled then
-    return
-  end
-
-  M.apply_colorscheme()
-  arm_schedule_timer()
-  start_poll_timer()
 end
 
 ---@param opts ColorfulTimes.Config?
@@ -616,7 +605,16 @@ function M.setup(opts)
     end,
   })
 
-  vim.defer_fn(run_deferred_setup, 0)
+  vim.defer_fn(function()
+    load_persisted_state()
+    if not M.config.enabled then
+      return
+    end
+
+    M.apply_colorscheme()
+    arm_schedule_timer()
+    start_poll_timer()
+  end, 0)
 end
 
 -- TUI entry point
