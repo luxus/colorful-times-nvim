@@ -15,6 +15,12 @@ The goal is not to remove Colorful Times features or special-case the benchmark.
   - `ct_resolve_us`, `minimal_resolve_us`, `resolve_delta_us` — schedule/theme resolution cost per call.
   - `ct_apply_us`, `minimal_apply_us` — absolute full apply costs.
   - `command_us` — plugin command registration cost guardrail.
+- **Diagnostics**:
+  - `delta_p25_us`, `delta_p75_us`, `delta_iqr_us` — paired startup delta spread for judging noise.
+  - `apply_delta_p25_us`, `apply_delta_p75_us`, `apply_delta_iqr_us` — paired apply delta spread for judging noise.
+  - `command_p25_us`, `command_p75_us`, `command_iqr_us` — command registration spread for judging noise.
+  - `delta_empty_us`, `delta_two_entry_us`, `delta_disabled_us`, `delta_hourly_us` — per-scenario startup deltas.
+  - `apply_delta_empty_us`, `apply_delta_two_entry_us`, `apply_delta_disabled_us`, `apply_delta_hourly_us` — per-scenario apply deltas.
 
 ## How to Run
 
@@ -172,4 +178,4 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Benchmark diagnostics kept/confirmed: per-scenario apply delta metrics now complement startup scenario metrics without changing the primary aggregate metric. First run: `apply_delta_empty_us=3.605000`, `apply_delta_two_entry_us=7.482490`, `apply_delta_disabled_us=-1.272090`, `apply_delta_hourly_us=4.993330`; confirmation: `apply_delta_empty_us=-0.225830`, `apply_delta_two_entry_us=6.200420`, `apply_delta_disabled_us=-3.193750`, `apply_delta_hourly_us=6.732080`. All are within measured apply IQR, so apply remains parity/noise-limited. Confirmation also measured startup scenario deltas all faster than minimal (`delta_empty_us=-90.856337`, `delta_two_entry_us=-83.930664`, `delta_disabled_us=-77.268446`, `delta_hourly_us=-70.296224`).
 - Benchmark diagnostics kept: per-scenario diagnostics now reuse existing paired startup/apply samples instead of running separate scenario passes, preserving metric names while reducing benchmark runtime from ~34s back to ~17s. First refactor run: `delta_us=-83.709554`, `delta_iqr_us=39.076362`, `apply_delta_iqr_us=14.074797`. No-code confirmation reran noisier at `delta_us=-67.328722`, but all scenario startup deltas remained faster than minimal and apply scenario deltas remained within IQR; keep the refactor for runtime/diagnostic quality.
 - Benchmark diagnostics kept/confirmed: added `command_p25_us`, `command_p75_us`, and `command_iqr_us` so future command registration tweaks are judged against measured command noise. First run measured `command_us=57.325098`, `command_iqr_us=4.775098`; confirmation measured `command_us=60.004199`, `command_iqr_us=6.620801`, confirming previous sub-2µs command tweaks were below noise.
-- Benchmark integrity check pending: `autoresearch.checks.sh` now verifies `bench/minimal-switcher.lua` stays under 50 lines so the reference target cannot be weakened accidentally.
+- Benchmark integrity check kept: `autoresearch.checks.sh` now verifies `bench/minimal-switcher.lua` stays under 50 lines so the reference target cannot be weakened accidentally. Checks passed; first run measured `delta_us=-80.368083` with metric movement inside measured noise.
