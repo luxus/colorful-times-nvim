@@ -5,6 +5,7 @@ package.path = root .. "/?.lua;" .. root .. "/?/init.lua;" .. package.path
 local uv = vim.uv
 local unpack = table.unpack or unpack
 local samples = tonumber(vim.env.CT_BENCH_SAMPLES or "41")
+local startup_iters = tonumber(vim.env.CT_BENCH_STARTUP_ITERS or "1")
 local apply_iters = tonumber(vim.env.CT_BENCH_APPLY_ITERS or "2000")
 local command_iters = tonumber(vim.env.CT_BENCH_COMMAND_ITERS or "1")
 local resolve_iters = tonumber(vim.env.CT_BENCH_RESOLVE_ITERS or "50000")
@@ -126,26 +127,30 @@ end
 
 local function ct_startup_once()
   local total = 0
-  for _, opts in ipairs(scenarios) do
-    clear_ct()
-    local t0 = now_us()
-    require("colorful-times").setup(opts)
-    total = total + (now_us() - t0)
+  for _ = 1, startup_iters do
+    for _, opts in ipairs(scenarios) do
+      clear_ct()
+      local t0 = now_us()
+      require("colorful-times").setup(opts)
+      total = total + (now_us() - t0)
+    end
   end
   clear_ct()
-  return total / #scenarios
+  return total / (#scenarios * startup_iters)
 end
 
 local function minimal_startup_once()
   local total = 0
-  for _, opts in ipairs(scenarios) do
-    clear_minimal()
-    local t0 = now_us()
-    require("bench.minimal-switcher").setup(opts)
-    total = total + (now_us() - t0)
+  for _ = 1, startup_iters do
+    for _, opts in ipairs(scenarios) do
+      clear_minimal()
+      local t0 = now_us()
+      require("bench.minimal-switcher").setup(opts)
+      total = total + (now_us() - t0)
+    end
   end
   clear_minimal()
-  return total / #scenarios
+  return total / (#scenarios * startup_iters)
 end
 
 local function collect_startup_pair()

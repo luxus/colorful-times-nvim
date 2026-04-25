@@ -26,6 +26,7 @@ The script runs headless Neovim with isolated XDG directories and prints `METRIC
 
 - `CT_BENCH_SAMPLES=21`
 - `CT_BENCH_WARMUP=3`
+- `CT_BENCH_STARTUP_ITERS=5`
 - `CT_BENCH_APPLY_ITERS=100`
 - `CT_BENCH_COMMAND_ITERS=10`
 - `CT_BENCH_RESOLVE_ITERS=20000`
@@ -123,7 +124,17 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Discarded: reusing a single mutable command opts table regressed to `command_us=59.437500`; keep separate literal opts tables.
 - No-code confirmation of stable command best reran worse (`command_us=58.591699` vs best `56.833203`), so sub-2µs command changes should be treated as noise. Command path appears exhausted.
 - Segment change: returned to `delta_us` on the broadened four-scenario workload and keep `apply_delta_us`/`command_us` as guardrails. Baseline: `delta_us=-84.239502`.
-- Kept: using `vim.deepcopy(..., true)` for setup-time config copies improved `delta_us` to `-90.166504`. Configs are expected to be acyclic; tests passed.
+- Superseded/discarded: `vim.deepcopy(..., true)` looked faster with independent-median startup delta, but paired startup benchmarking showed regular `vim.deepcopy()` was better (`delta_us=-107.458496` vs noref paired baseline `-76.968262`). Keep regular deepcopy.
 - No-code confirmation of the noref deepcopy state reran much worse (`delta_us=56.718994`), showing startup delta is noisy when computed from independent medians.
 - Benchmark stability update: `delta_us` now uses the median of paired Colorful Times/minimal startup deltas. Paired startup baseline after noref deepcopy: `delta_us=-76.968262`.
+- Benchmark stability update pending: average five startup cycles per startup sample before computing paired `delta_us`.
+- Discarded: caching core-local setup time validation results regressed to `delta_us=-80.833252`; keep simple uncached validation.
+- Discarded: combining FocusLost/FocusGained into one autocmd callback regressed to `delta_us=-75.270752`; keep separate autocmd registrations.
+- Discarded: adding an explicit `M.setup` wrapper in `init.lua` regressed to `delta_us=-98.062500`; metatable lazy loading remains better.
+- Discarded: unrolling default theme validation and removing `THEME_KEYS` regressed to `delta_us=-75.187500`; keep the compact loop.
+- Discarded: replacing `_lazy_keys` table with inline string comparisons in `init.lua` regressed to `delta_us=-96.072998`; keep the lookup table.
+- Discarded: using `package.loaded["colorful-times"] or require(...)` in `core.lua` regressed to `delta_us=-76.604248`; keep direct `require("colorful-times")`.
+- Discarded: skipping the first setup-time `nvim_clear_autocmds()` regressed to `delta_us=-75.677734`; keep unconditional autocmd clear in setup.
+- Discarded: skipping the deferred setup callback for `persist=false` and `enabled=false` regressed to `delta_us=-94.541260`; keep the unconditional defer path.
+- Discarded: removing explicit nil defaults from the public config table regressed to `delta_us=-94.979492`; keep them for readability.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
