@@ -8,9 +8,9 @@ The goal is not to remove Colorful Times features or special-case the benchmark.
 
 ## Metrics
 
-- **Primary**: `delta_us` (µs, lower is better) — median Colorful Times setup/startup time minus median minimal-switcher setup/startup time across the broadened four-scenario workload.
+- **Primary**: `apply_delta_us` (µs, lower is better) — median paired Colorful Times apply/switch time minus minimal-switcher apply/switch time across the broadened four-scenario workload.
 - **Secondary**:
-  - `apply_delta_us` — apply/switch parity guardrail.
+  - `delta_us` — setup/startup parity guardrail.
   - `ct_startup_us`, `minimal_startup_us`, `startup_ratio_x` — absolute setup/startup costs and ratio.
   - `ct_resolve_us`, `minimal_resolve_us`, `resolve_delta_us` — schedule/theme resolution cost per call.
   - `ct_apply_us`, `minimal_apply_us` — absolute full apply costs.
@@ -129,6 +129,12 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Benchmark stability update: `delta_us` now uses the median of paired Colorful Times/minimal startup deltas. Paired startup baseline after noref deepcopy: `delta_us=-76.968262`.
 - Benchmark stability update: `CT_BENCH_STARTUP_ITERS=5` averages five startup cycles per sample before paired `delta_us`. Stable paired startup baseline: `delta_us=-76.885498`.
 - Kept: noref deepcopy for setup-time config copies under the stable paired startup benchmark; best confirmed value so far is `delta_us=-84.797754`.
+- Kept but noisy: using noref only for the user `opts` copy and regular deepcopy for `_base_config` produced `delta_us=-90.752197`, but a no-code confirmation reran near baseline (`-77.562451`). Reverting opts noref to regular also measured near baseline (`-77.650049`) and was discarded, so current code keeps opts-only noref. The opposite split (`opts` regular, `_base_config` noref) measured `-90.576904` but worsened `command_us` to `84.087402` and was discarded. Do not pursue more noref split experiments.
+- Discarded: moving status table construction into a lazy status module measured `delta_us=-88.347803`, not enough to justify added private helper surface and module split.
+- Discarded: manual byte parsing for core-local setup time validation measured `delta_us=-83.650049` and was much less maintainable; keep string pattern validation.
+- Checks-failed probe: removing focus autocmds entirely measured `delta_us=-108.054004`, showing an upper-bound cost but failing correctness.
+- Discarded: conditional focus autocmd registration with updated tests measured `delta_us=-60.837695`; schedule scanning/sync logic outweighed avoided autocmd API calls. Keep unconditional focus autocmds.
+- Segment change pending: startup delta is again at parity under the stable paired benchmark. Next segment targets `apply_delta_us` to explore the schedule runtime split idea while keeping `delta_us` and `command_us` as guardrails.
 - Discarded: caching core-local setup time validation results regressed to `delta_us=-80.833252`; keep simple uncached validation.
 - Discarded: combining FocusLost/FocusGained into one autocmd callback regressed to `delta_us=-75.270752`; keep separate autocmd registrations.
 - Discarded: adding an explicit `M.setup` wrapper in `init.lua` regressed to `delta_us=-98.062500`; metatable lazy loading remains better.
