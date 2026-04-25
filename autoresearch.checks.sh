@@ -7,6 +7,11 @@ if [ "$minimal_lines" -gt 50 ]; then
   exit 1
 fi
 
+if grep -q 'colorful-times' bench/minimal-switcher.lua; then
+  echo "bench/minimal-switcher.lua must stay independent of colorful-times" >&2
+  exit 1
+fi
+
 nvim --headless \
   -u tests/minimal_init.vim \
   -c "PlenaryBustedDirectory tests/ { minimal_init = './tests/minimal_init.vim' }"
