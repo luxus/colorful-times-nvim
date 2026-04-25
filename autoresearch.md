@@ -8,12 +8,12 @@ The goal is not to remove Colorful Times features or special-case the benchmark.
 
 ## Metrics
 
-- **Primary**: `apply_delta_us` (µs, lower is better) — median Colorful Times apply/switch time minus median minimal-switcher apply/switch time, averaged across benchmark scenarios. This is the active second segment after startup/setup reached parity with the minimal switcher.
+- **Primary**: `command_us` (µs, lower is better) — cost to source `plugin/colorful-times.lua` and register user commands. This is the active follow-up segment after setup/apply parity with the minimal switcher was achieved.
 - **Secondary**:
+  - `apply_delta_us` — apply/switch parity guardrail.
   - `delta_us`, `ct_startup_us`, `minimal_startup_us`, `startup_ratio_x` — setup/startup parity guardrails.
   - `ct_resolve_us`, `minimal_resolve_us`, `resolve_delta_us` — schedule/theme resolution cost per call.
   - `ct_apply_us`, `minimal_apply_us` — absolute full apply costs.
-  - `command_us` — cost to source `plugin/colorful-times.lua` and register user commands.
 
 ## How to Run
 
@@ -105,5 +105,10 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Benchmark stability update: `apply_delta_us` now uses the median of paired Colorful Times/minimal apply deltas rather than subtracting independent medians. Paired baseline is `apply_delta_us=-0.055140`, effectively parity with the minimal switcher.
 - Discarded: retrying the empty-schedule fast path under paired apply still regressed to `apply_delta_us=3.585003`.
 - Discarded: reverting hot apply/resolve calls to table-based context resolution regressed to `apply_delta_us=8.637777`; scalar resolution remains useful.
-- Benchmark broadened pending: add a representative 24-entry hourly schedule scenario so startup/apply parity is not overfit to tiny schedules.
+- Benchmark broadened: added a representative 24-entry hourly schedule scenario so startup/apply parity is not overfit to tiny schedules. Four-scenario baseline: `apply_delta_us=3.075315`, `delta_us=-91.343506`.
+- Discarded: inlining active-entry range checks and using a numeric loop in `schedule.get_active_entry()` regressed to `apply_delta_us=9.735313`; keep the helper-based implementation.
+- Discarded: precomputing parsed schedules during `setup()` for `persist=false` configs regressed to `apply_delta_us=10.080420` and broke startup parity (`delta_us=52.405762`). Keep lazy schedule preprocessing.
+- Discarded: replacing `table.insert()` with direct array appends in `schedule.preprocess()` regressed to `apply_delta_us=5.346250`; keep `table.insert()`.
+- Discarded: caching active schedule entries for non-overlapping schedules regressed to `apply_delta_us=8.048337`; cache checks/preprocess overhead outweighed lookup savings.
+- Segment change pending: setup/apply parity is achieved under the broadened paired benchmark. Next segment targets `command_us` as remaining startup-adjacent overhead, while keeping `apply_delta_us` and `delta_us` as guardrails.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
