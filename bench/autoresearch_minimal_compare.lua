@@ -137,96 +137,73 @@ end
 
 local function ct_startup_once()
   local total = 0
+  local scenario_totals = { 0, 0, 0, 0 }
   for _ = 1, startup_iters do
-    for _, opts in ipairs(scenarios) do
+    for i, opts in ipairs(scenarios) do
       clear_ct()
       local t0 = now_us()
       require("colorful-times").setup(opts)
-      total = total + (now_us() - t0)
+      local elapsed = now_us() - t0
+      total = total + elapsed
+      scenario_totals[i] = scenario_totals[i] + elapsed
     end
   end
   clear_ct()
-  return total / (#scenarios * startup_iters)
+  for i = 1, #scenario_totals do
+    scenario_totals[i] = scenario_totals[i] / startup_iters
+  end
+  return total / (#scenarios * startup_iters), scenario_totals
 end
 
 local function minimal_startup_once()
   local total = 0
+  local scenario_totals = { 0, 0, 0, 0 }
   for _ = 1, startup_iters do
-    for _, opts in ipairs(scenarios) do
+    for i, opts in ipairs(scenarios) do
       clear_minimal()
       local t0 = now_us()
       require("bench.minimal-switcher").setup(opts)
-      total = total + (now_us() - t0)
+      local elapsed = now_us() - t0
+      total = total + elapsed
+      scenario_totals[i] = scenario_totals[i] + elapsed
     end
   end
   clear_minimal()
-  return total / (#scenarios * startup_iters)
-end
-
-local function ct_startup_scenario_once(opts)
-  local total = 0
-  for _ = 1, startup_iters do
-    clear_ct()
-    local t0 = now_us()
-    require("colorful-times").setup(opts)
-    total = total + (now_us() - t0)
+  for i = 1, #scenario_totals do
+    scenario_totals[i] = scenario_totals[i] / startup_iters
   end
-  clear_ct()
-  return total / startup_iters
-end
-
-local function minimal_startup_scenario_once(opts)
-  local total = 0
-  for _ = 1, startup_iters do
-    clear_minimal()
-    local t0 = now_us()
-    require("bench.minimal-switcher").setup(opts)
-    total = total + (now_us() - t0)
-  end
-  clear_minimal()
-  return total / startup_iters
+  return total / (#scenarios * startup_iters), scenario_totals
 end
 
 local function collect_startup_pair()
   local ct_values, minimal_values, delta_values = {}, {}, {}
+  local scenario_delta_values = { {}, {}, {}, {} }
   for _ = 1, warmup do
     ct_startup_once()
     minimal_startup_once()
   end
   for i = 1, samples do
+    local ct_scenarios, minimal_scenarios
     if i % 2 == 0 then
-      minimal_values[i] = minimal_startup_once()
-      ct_values[i] = ct_startup_once()
+      minimal_values[i], minimal_scenarios = minimal_startup_once()
+      ct_values[i], ct_scenarios = ct_startup_once()
     else
-      ct_values[i] = ct_startup_once()
-      minimal_values[i] = minimal_startup_once()
+      ct_values[i], ct_scenarios = ct_startup_once()
+      minimal_values[i], minimal_scenarios = minimal_startup_once()
     end
     delta_values[i] = ct_values[i] - minimal_values[i]
+    for scenario_i = 1, #scenarios do
+      scenario_delta_values[scenario_i][i] = ct_scenarios[scenario_i] - minimal_scenarios[scenario_i]
+    end
   end
   local delta = median(delta_values)
   local delta_p25 = percentile_sorted(delta_values, 0.25)
   local delta_p75 = percentile_sorted(delta_values, 0.75)
-  return delta, median(ct_values), median(minimal_values), delta_p25, delta_p75
-end
-
-local function collect_startup_scenario_delta(opts)
-  local delta_values = {}
-  for _ = 1, warmup do
-    ct_startup_scenario_once(opts)
-    minimal_startup_scenario_once(opts)
+  local scenario_deltas = {}
+  for scenario_i, key in ipairs(scenario_metric_keys) do
+    scenario_deltas[key] = median(scenario_delta_values[scenario_i])
   end
-  for i = 1, samples do
-    local ct_value, minimal_value
-    if i % 2 == 0 then
-      minimal_value = minimal_startup_scenario_once(opts)
-      ct_value = ct_startup_scenario_once(opts)
-    else
-      ct_value = ct_startup_scenario_once(opts)
-      minimal_value = minimal_startup_scenario_once(opts)
-    end
-    delta_values[i] = ct_value - minimal_value
-  end
-  return median(delta_values)
+  return delta, median(ct_values), median(minimal_values), delta_p25, delta_p75, scenario_deltas
 end
 
 local function setup_ct(opts)
@@ -276,97 +253,68 @@ end
 local function ct_apply_once()
   vim.schedule = function(fn) fn() end
   local total = 0
-  for _, opts in ipairs(scenarios) do
+  local scenario_values = {}
+  for i, opts in ipairs(scenarios) do
     local ct = setup_ct(opts)
     local t0 = now_us()
     for _ = 1, apply_iters do
       ct.apply_colorscheme()
     end
-    total = total + (now_us() - t0) / apply_iters
+    local elapsed = (now_us() - t0) / apply_iters
+    scenario_values[i] = elapsed
+    total = total + elapsed
   end
   vim.schedule = orig_schedule
   clear_ct()
-  return total / #scenarios
+  return total / #scenarios, scenario_values
 end
 
 local function minimal_apply_once()
   local total = 0
-  for _, opts in ipairs(scenarios) do
+  local scenario_values = {}
+  for i, opts in ipairs(scenarios) do
     local mini = setup_minimal(opts)
     local t0 = now_us()
     for _ = 1, apply_iters do
       mini.apply(advance_min())
     end
-    total = total + (now_us() - t0) / apply_iters
+    local elapsed = (now_us() - t0) / apply_iters
+    scenario_values[i] = elapsed
+    total = total + elapsed
   end
   clear_minimal()
-  return total / #scenarios
-end
-
-local function ct_apply_scenario_once(opts)
-  vim.schedule = function(fn) fn() end
-  local ct = setup_ct(opts)
-  local t0 = now_us()
-  for _ = 1, apply_iters do
-    ct.apply_colorscheme()
-  end
-  local elapsed = (now_us() - t0) / apply_iters
-  vim.schedule = orig_schedule
-  clear_ct()
-  return elapsed
-end
-
-local function minimal_apply_scenario_once(opts)
-  local mini = setup_minimal(opts)
-  local t0 = now_us()
-  for _ = 1, apply_iters do
-    mini.apply(advance_min())
-  end
-  local elapsed = (now_us() - t0) / apply_iters
-  clear_minimal()
-  return elapsed
+  return total / #scenarios, scenario_values
 end
 
 local function collect_apply_pair()
   local ct_values, minimal_values, delta_values = {}, {}, {}
+  local scenario_delta_values = { {}, {}, {}, {} }
   for _ = 1, warmup do
     ct_apply_once()
     minimal_apply_once()
   end
   for i = 1, samples do
+    local ct_scenarios, minimal_scenarios
     if i % 2 == 0 then
-      minimal_values[i] = minimal_apply_once()
-      ct_values[i] = ct_apply_once()
+      minimal_values[i], minimal_scenarios = minimal_apply_once()
+      ct_values[i], ct_scenarios = ct_apply_once()
     else
-      ct_values[i] = ct_apply_once()
-      minimal_values[i] = minimal_apply_once()
+      ct_values[i], ct_scenarios = ct_apply_once()
+      minimal_values[i], minimal_scenarios = minimal_apply_once()
     end
     delta_values[i] = ct_values[i] - minimal_values[i]
+    for scenario_i = 1, #scenarios do
+      scenario_delta_values[scenario_i][i] = ct_scenarios[scenario_i] - minimal_scenarios[scenario_i]
+    end
   end
   local delta = median(delta_values)
   local delta_p25 = percentile_sorted(delta_values, 0.25)
   local delta_p75 = percentile_sorted(delta_values, 0.75)
-  return delta, median(ct_values), median(minimal_values), delta_p25, delta_p75
-end
-
-local function collect_apply_scenario_delta(opts)
-  local delta_values = {}
-  for _ = 1, warmup do
-    ct_apply_scenario_once(opts)
-    minimal_apply_scenario_once(opts)
+  local scenario_deltas = {}
+  for scenario_i, key in ipairs(scenario_metric_keys) do
+    scenario_deltas[key] = median(scenario_delta_values[scenario_i])
   end
-  for i = 1, samples do
-    local ct_value, minimal_value
-    if i % 2 == 0 then
-      minimal_value = minimal_apply_scenario_once(opts)
-      ct_value = ct_apply_scenario_once(opts)
-    else
-      ct_value = ct_apply_scenario_once(opts)
-      minimal_value = minimal_apply_scenario_once(opts)
-    end
-    delta_values[i] = ct_value - minimal_value
-  end
-  return median(delta_values)
+  return delta, median(ct_values), median(minimal_values), delta_p25, delta_p75, scenario_deltas
 end
 
 local function command_once()
@@ -385,18 +333,10 @@ local function command_once()
   return total / command_iters
 end
 
-local delta_us, ct_startup_us, minimal_startup_us, delta_p25_us, delta_p75_us = collect_startup_pair()
-local scenario_startup_deltas = {}
-for i, key in ipairs(scenario_metric_keys) do
-  scenario_startup_deltas[key] = collect_startup_scenario_delta(scenarios[i])
-end
+local delta_us, ct_startup_us, minimal_startup_us, delta_p25_us, delta_p75_us, scenario_startup_deltas = collect_startup_pair()
 local ct_resolve_us = collect(ct_resolve_once)
 local minimal_resolve_us = collect(minimal_resolve_once)
-local apply_delta_us, ct_apply_us, minimal_apply_us, apply_delta_p25_us, apply_delta_p75_us = collect_apply_pair()
-local scenario_apply_deltas = {}
-for i, key in ipairs(scenario_metric_keys) do
-  scenario_apply_deltas[key] = collect_apply_scenario_delta(scenarios[i])
-end
+local apply_delta_us, ct_apply_us, minimal_apply_us, apply_delta_p25_us, apply_delta_p75_us, scenario_apply_deltas = collect_apply_pair()
 local command_us = collect(command_once)
 local ratio_x = ct_startup_us / minimal_startup_us
 local resolve_delta_us = ct_resolve_us - minimal_resolve_us
