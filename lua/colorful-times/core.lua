@@ -3,9 +3,20 @@
 
 local M        = require("colorful-times")
 local schedule = require("colorful-times.schedule")
-local system   = require("colorful-times.system")
-local state    = require("colorful-times.state")
 local uv       = vim.uv
+
+local system_mod
+local state_mod
+
+local function system()
+  system_mod = system_mod or require("colorful-times.system")
+  return system_mod
+end
+
+local function state()
+  state_mod = state_mod or require("colorful-times.state")
+  return state_mod
+end
 
 -- ─── Constants ───────────────────────────────────────────────────────────────
 local MS_PER_MINUTE = 60000
@@ -174,7 +185,7 @@ function M.apply_colorscheme()
 
   vim.schedule(function() apply_sync(fallback_cs, fallback) end)
 
-  system.get_background(function(detected)
+  system().get_background(function(detected)
     if detected ~= _previous_bg then
       local real_cs = resolve_detected_colorscheme(cs, detected, use_default_theme_overrides)
       vim.schedule(function() apply_sync(real_cs, detected) end)
@@ -224,7 +235,7 @@ function M.status()
     session_pin = resolved.session_pin,
     schedule_entries = #M.config.schedule,
     refresh_time = M.config.refresh_time,
-    detection = system.detection_info(),
+    detection = system().detection_info(),
   }
 end
 
@@ -245,7 +256,7 @@ function M.save_state()
   if not M.config.persist then
     return
   end
-  state.save(persisted_state())
+  state().save(persisted_state())
 end
 
 ---Merge persisted state from disk on top of the current config.
@@ -255,18 +266,18 @@ local function load_persisted_state()
     return false
   end
 
-  local stored = state.load()
+  local stored = state().load()
   if type(stored) ~= "table" or not next(stored) then
     return false
   end
 
-  local valid, err = state.validate_state(stored)
+  local valid, err = state().validate_state(stored)
   if not valid then
     vim.notify("colorful-times: invalid persisted state ignored: " .. (err or "unknown"), vim.log.levels.WARN)
     return false
   end
 
-  M.config = state.merge(M.config, stored)
+  M.config = state().merge(M.config, stored)
   _parsed_schedule = nil
   return true
 end
@@ -317,7 +328,7 @@ start_poll_timer = function()
   _poll_inflight = false
 
   if not needs_system_poll() then return end
-  if not system.has_detection() then return end
+  if not system().has_detection() then return end
 
   local fallback = _previous_bg or "dark"
   _timers.poll = uv.new_timer()
@@ -326,7 +337,7 @@ start_poll_timer = function()
     if _poll_inflight then return end
 
     _poll_inflight = true
-    system.get_background(function(bg)
+    system().get_background(function(bg)
       _poll_inflight = false
       if bg ~= _previous_bg then M.apply_colorscheme() end
     end, fallback)
@@ -528,7 +539,7 @@ function M.setup(opts)
     callback = function()
       _focused = true
       if needs_system_poll() then
-        system.get_background(function(bg)
+        system().get_background(function(bg)
           if bg ~= _previous_bg then M.apply_colorscheme() end
           start_poll_timer()
         end, _previous_bg or "dark")
