@@ -24,9 +24,9 @@ The goal is not to remove Colorful Times features or special-case the benchmark.
 
 The script runs headless Neovim with isolated XDG directories and prints `METRIC name=value` lines. Defaults are tuned to keep iterations fast while still using medians:
 
-- `CT_BENCH_SAMPLES=21`
+- `CT_BENCH_SAMPLES=31`
 - `CT_BENCH_WARMUP=3`
-- `CT_BENCH_STARTUP_ITERS=5`
+- `CT_BENCH_STARTUP_ITERS=9`
 - `CT_BENCH_APPLY_ITERS=100`
 - `CT_BENCH_COMMAND_ITERS=10`
 - `CT_BENCH_RESOLVE_ITERS=20000`
@@ -157,10 +157,13 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Discarded: binding `opts.schedule` to a local before the validation loop regressed to `delta_us=-83.341748`; keep the numeric loop exactly as committed.
 - Benchmark stability change: increased default samples from 21 to 31 to reduce noise before more sub-10µs startup experiments. New 31-sample baseline: `delta_us=-92.008154`, `apply_delta_us=1.292185`, `command_us=56.337500`.
 - Benchmark stability change: increased startup iterations per sample from 5 to 9 to reduce startup noise. New 31×9 startup baseline: `delta_us=-62.120334`, `apply_delta_us=2.561667`, `command_us=57.558398`.
-- Kept: under the 31×9 benchmark, reverting the two weak kept setup changes (numeric validation loop and hoisted defer callback) improved `delta_us` to `-88.671170` and `apply_delta_us=-1.215310`; `command_us=63.020801` needs monitoring.
+- Kept/confirmed: under the 31×9 benchmark, reverting the two weak kept setup changes (numeric validation loop and hoisted defer callback) improved `delta_us` to `-88.671170`; no-code confirmation improved further to `-95.202393` with `apply_delta_us=-1.840728` and `command_us=56.762695`. Do not revisit these changes.
+- Discarded: splitting rare enable/disable/toggle/reload actions into `actions.lua` wrappers regressed to `delta_us=-63.777669`, worsened `apply_delta_us=7.008228`, and added private-hook complexity. Do not pursue this broader action split shape.
 - Discarded: localizing core autocmd API functions regressed to `delta_us=-90.428906`; keep direct `vim.api` calls.
 - Discarded: hoisting focus autocmd callbacks/options regressed to `delta_us=-84.466602`; keep inline setup callbacks/options.
 - Reverted: hoisting the deferred setup callback was weak/noisy under 31-sample runs; under the steadier 31×9 benchmark, reverting it together with the numeric validation loop improved `delta_us` from `-62.120334` to `-88.671170`. Keep the inline deferred callback.
 - Discarded: explicit schema-field default merge regressed to `delta_us=-63.506055`; keep `vim.tbl_deep_extend("force", ...)`.
 - Discarded: localizing `vim.deepcopy` and `vim.tbl_deep_extend` measured only a small/noisy delta gain (`-94.345752`) with worse `command_us=64.666504`; keep direct calls.
 - Discarded: inline background validation comparisons regressed to `delta_us=-55.837598`; keep `VALID_BACKGROUNDS[...]` lookups.
+- Discarded: replacing the small `_timers` table with separate `_schedule_timer`/`_poll_timer` locals measured `delta_us=-86.059082`, worse than current confirmed `-95.202393`, and worsened guardrails; keep `_timers` table.
+- Benchmark diagnostics pending: report paired-delta p25/p75/IQR for startup and apply to quantify noise before keeping more sub-10µs changes. First attempt crashed because `collect_apply_pair()` still returned only three values; retry updates both paired collectors.

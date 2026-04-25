@@ -114,6 +114,14 @@ local function median(values)
   return (values[n / 2] + values[n / 2 + 1]) / 2
 end
 
+local function percentile_sorted(values, p)
+  local n = #values
+  local idx = math.floor((n - 1) * p + 1.5)
+  if idx < 1 then idx = 1 end
+  if idx > n then idx = n end
+  return values[idx]
+end
+
 local function collect(fn)
   local values = {}
   for _ = 1, warmup do
@@ -169,7 +177,10 @@ local function collect_startup_pair()
     end
     delta_values[i] = ct_values[i] - minimal_values[i]
   end
-  return median(delta_values), median(ct_values), median(minimal_values)
+  local delta = median(delta_values)
+  local delta_p25 = percentile_sorted(delta_values, 0.25)
+  local delta_p75 = percentile_sorted(delta_values, 0.75)
+  return delta, median(ct_values), median(minimal_values), delta_p25, delta_p75
 end
 
 local function setup_ct(opts)
@@ -262,7 +273,10 @@ local function collect_apply_pair()
     end
     delta_values[i] = ct_values[i] - minimal_values[i]
   end
-  return median(delta_values), median(ct_values), median(minimal_values)
+  local delta = median(delta_values)
+  local delta_p25 = percentile_sorted(delta_values, 0.25)
+  local delta_p75 = percentile_sorted(delta_values, 0.75)
+  return delta, median(ct_values), median(minimal_values), delta_p25, delta_p75
 end
 
 local function command_once()
@@ -281,16 +295,21 @@ local function command_once()
   return total / command_iters
 end
 
-local delta_us, ct_startup_us, minimal_startup_us = collect_startup_pair()
+local delta_us, ct_startup_us, minimal_startup_us, delta_p25_us, delta_p75_us = collect_startup_pair()
 local ct_resolve_us = collect(ct_resolve_once)
 local minimal_resolve_us = collect(minimal_resolve_once)
-local apply_delta_us, ct_apply_us, minimal_apply_us = collect_apply_pair()
+local apply_delta_us, ct_apply_us, minimal_apply_us, apply_delta_p25_us, apply_delta_p75_us = collect_apply_pair()
 local command_us = collect(command_once)
 local ratio_x = ct_startup_us / minimal_startup_us
 local resolve_delta_us = ct_resolve_us - minimal_resolve_us
+local delta_iqr_us = delta_p75_us - delta_p25_us
+local apply_delta_iqr_us = apply_delta_p75_us - apply_delta_p25_us
 
 local metrics = {
   { "delta_us", delta_us },
+  { "delta_p25_us", delta_p25_us },
+  { "delta_p75_us", delta_p75_us },
+  { "delta_iqr_us", delta_iqr_us },
   { "ct_startup_us", ct_startup_us },
   { "minimal_startup_us", minimal_startup_us },
   { "startup_ratio_x", ratio_x },
@@ -300,6 +319,9 @@ local metrics = {
   { "ct_apply_us", ct_apply_us },
   { "minimal_apply_us", minimal_apply_us },
   { "apply_delta_us", apply_delta_us },
+  { "apply_delta_p25_us", apply_delta_p25_us },
+  { "apply_delta_p75_us", apply_delta_p75_us },
+  { "apply_delta_iqr_us", apply_delta_iqr_us },
   { "command_us", command_us },
 }
 
