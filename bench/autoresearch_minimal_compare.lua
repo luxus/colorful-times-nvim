@@ -160,8 +160,13 @@ local function collect_startup_pair()
     minimal_startup_once()
   end
   for i = 1, samples do
-    ct_values[i] = ct_startup_once()
-    minimal_values[i] = minimal_startup_once()
+    if i % 2 == 0 then
+      minimal_values[i] = minimal_startup_once()
+      ct_values[i] = ct_startup_once()
+    else
+      ct_values[i] = ct_startup_once()
+      minimal_values[i] = minimal_startup_once()
+    end
     delta_values[i] = ct_values[i] - minimal_values[i]
   end
   return median(delta_values), median(ct_values), median(minimal_values)
@@ -248,8 +253,13 @@ local function collect_apply_pair()
     minimal_apply_once()
   end
   for i = 1, samples do
-    ct_values[i] = ct_apply_once()
-    minimal_values[i] = minimal_apply_once()
+    if i % 2 == 0 then
+      minimal_values[i] = minimal_apply_once()
+      ct_values[i] = ct_apply_once()
+    else
+      ct_values[i] = ct_apply_once()
+      minimal_values[i] = minimal_apply_once()
+    end
     delta_values[i] = ct_values[i] - minimal_values[i]
   end
   return median(delta_values), median(ct_values), median(minimal_values)

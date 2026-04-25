@@ -135,6 +135,7 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Checks-failed probe: removing focus autocmds entirely measured `delta_us=-108.054004`, showing an upper-bound cost but failing correctness.
 - Discarded: conditional focus autocmd registration with updated tests measured `delta_us=-60.837695`; schedule scanning/sync logic outweighed avoided autocmd API calls. Keep unconditional focus autocmds.
 - Segment change pending: startup delta is again at parity under the stable paired benchmark. Next segment targets `apply_delta_us` to explore the schedule runtime split idea while keeping `delta_us` and `command_us` as guardrails.
+- Benchmark fairness update pending: alternate Colorful Times/minimal measurement order inside paired startup and apply samples to reduce ordering bias.
 - Discarded: caching core-local setup time validation results regressed to `delta_us=-80.833252`; keep simple uncached validation.
 - Discarded: combining FocusLost/FocusGained into one autocmd callback regressed to `delta_us=-75.270752`; keep separate autocmd registrations.
 - Discarded: adding an explicit `M.setup` wrapper in `init.lua` regressed to `delta_us=-98.062500`; metatable lazy loading remains better.
