@@ -124,10 +124,11 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Discarded: reusing a single mutable command opts table regressed to `command_us=59.437500`; keep separate literal opts tables.
 - No-code confirmation of stable command best reran worse (`command_us=58.591699` vs best `56.833203`), so sub-2µs command changes should be treated as noise. Command path appears exhausted.
 - Segment change: returned to `delta_us` on the broadened four-scenario workload and keep `apply_delta_us`/`command_us` as guardrails. Baseline: `delta_us=-84.239502`.
-- Superseded/discarded: `vim.deepcopy(..., true)` looked faster with independent-median startup delta, but paired startup benchmarking showed regular `vim.deepcopy()` was better (`delta_us=-107.458496` vs noref paired baseline `-76.968262`). Keep regular deepcopy.
-- No-code confirmation of the noref deepcopy state reran much worse (`delta_us=56.718994`), showing startup delta is noisy when computed from independent medians.
+- Superseded: `vim.deepcopy(..., true)` looked noisy across earlier paired/independent benchmark variants. Under the stable paired startup benchmark with five startup cycles per sample, noref deepcopy improved from `delta_us=-76.885498` to `-83.797803` and confirmed at `-84.797754`. Keep noref deepcopy for setup-time config copies.
+- Earlier no-code confirmation of the noref deepcopy state reran much worse (`delta_us=56.718994`) under the independent-median startup metric, showing that older metric was too noisy.
 - Benchmark stability update: `delta_us` now uses the median of paired Colorful Times/minimal startup deltas. Paired startup baseline after noref deepcopy: `delta_us=-76.968262`.
 - Benchmark stability update: `CT_BENCH_STARTUP_ITERS=5` averages five startup cycles per sample before paired `delta_us`. Stable paired startup baseline: `delta_us=-76.885498`.
+- Kept: noref deepcopy for setup-time config copies under the stable paired startup benchmark; best confirmed value so far is `delta_us=-84.797754`.
 - Discarded: caching core-local setup time validation results regressed to `delta_us=-80.833252`; keep simple uncached validation.
 - Discarded: combining FocusLost/FocusGained into one autocmd callback regressed to `delta_us=-75.270752`; keep separate autocmd registrations.
 - Discarded: adding an explicit `M.setup` wrapper in `init.lua` regressed to `delta_us=-98.062500`; metatable lazy loading remains better.

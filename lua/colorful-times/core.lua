@@ -584,7 +584,7 @@ function M.setup(opts)
     _parsed_schedule = nil
   end
 
-  _base_config = vim.deepcopy(M.config, true)
+  _base_config = vim.deepcopy(M.config)
 
   -- Register focus autocmds unconditionally (toggle needs them later)
   vim.api.nvim_clear_autocmds({ group = _augroup })
