@@ -9,7 +9,7 @@ local system_mod
 local state_mod
 
 local function schedule()
-  schedule_mod = schedule_mod or require("colorful-times.schedule")
+  schedule_mod = schedule_mod or require("colorful-times.schedule_runtime")
   return schedule_mod
 end
 

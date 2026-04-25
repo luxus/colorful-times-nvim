@@ -80,6 +80,7 @@ local ct_modules = {
   "colorful-times",
   "colorful-times.core",
   "colorful-times.schedule",
+  "colorful-times.schedule_runtime",
   "colorful-times.state",
   "colorful-times.system",
 }
