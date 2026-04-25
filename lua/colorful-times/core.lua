@@ -88,6 +88,12 @@ local function resolve_theme_parts()
     return cs or cfg.default.colorscheme, bg, true, "default", false
   end
 
+  if #cfg.schedule == 0 then
+    local bg = cfg.default.background
+    local cs = bg ~= "system" and cfg.default.themes[bg] or cfg.default.colorscheme
+    return cs or cfg.default.colorscheme, bg, true, "default", false
+  end
+
   local current_mins = now_mins()
   local sched = schedule()
   _parsed_schedule = _parsed_schedule or sched.preprocess(cfg.schedule, cfg.default.background)
@@ -303,6 +309,10 @@ local function needs_system_poll()
     return M.config.default.background == "system"
   end
 
+  if #M.config.schedule == 0 then
+    return M.config.default.background == "system"
+  end
+
   local current_mins = now_mins()
   local sched = schedule()
   _parsed_schedule = _parsed_schedule or sched.preprocess(M.config.schedule, M.config.default.background)
@@ -317,6 +327,7 @@ local start_poll_timer
 local function arm_schedule_timer()
   stop_timer(_timers.schedule)
   if not M.config.enabled then return end
+  if #M.config.schedule == 0 then return end
 
   -- Use cached parsed schedule for efficiency
   local sched = schedule()
