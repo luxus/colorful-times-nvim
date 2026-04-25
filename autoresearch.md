@@ -8,12 +8,13 @@ The goal is not to remove Colorful Times features or special-case the benchmark.
 
 ## Metrics
 
-- **Primary**: `command_us` (µs, lower is better) — cost to source `plugin/colorful-times.lua` and register user commands. This is the active follow-up segment after setup/apply parity with the minimal switcher was achieved.
+- **Primary**: `delta_us` (µs, lower is better) — median Colorful Times setup/startup time minus median minimal-switcher setup/startup time across the broadened four-scenario workload.
 - **Secondary**:
   - `apply_delta_us` — apply/switch parity guardrail.
-  - `delta_us`, `ct_startup_us`, `minimal_startup_us`, `startup_ratio_x` — setup/startup parity guardrails.
+  - `ct_startup_us`, `minimal_startup_us`, `startup_ratio_x` — absolute setup/startup costs and ratio.
   - `ct_resolve_us`, `minimal_resolve_us`, `resolve_delta_us` — schedule/theme resolution cost per call.
   - `ct_apply_us`, `minimal_apply_us` — absolute full apply costs.
+  - `command_us` — plugin command registration cost guardrail.
 
 ## How to Run
 
@@ -114,8 +115,12 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Segment change: setup/apply parity is achieved under the broadened paired benchmark. Current segment targets `command_us` as remaining startup-adjacent overhead, while keeping `apply_delta_us` and `delta_us` as guardrails.
 - Command baseline: `command_us=80.750000`.
 - Kept: localizing `vim.api.nvim_create_user_command` in `plugin/colorful-times.lua` reduced `command_us` to `57.041992` without changing command behavior.
-- Benchmark stability update pending: average `command_us` across 10 command registration/delete cycles per sample.
-- Discarded: generating common command callbacks through a helper regressed to `command_us=61.291992`; keep explicit callbacks.
+- Benchmark stability update: `command_us` now averages 10 command registration/delete cycles per sample. Stable baseline after localizing `nvim_create_user_command`: `command_us=56.833203`.
+- Discarded: generating common command callbacks through a helper regressed to `command_us=61.291992` and again to `60.354297` under the stable command benchmark; keep explicit callbacks.
 - Discarded: moving `ColorfulTimesStatus` formatting into a lazy module regressed to `command_us=75.583008`; status callback size is not the bottleneck.
 - Discarded: localizing `require` for command callbacks regressed to `command_us=63.958984`; do not localize globals used only inside callbacks.
+- Discarded: removing explicit `require("colorful-times.core")` from callbacks regressed to `command_us=58.816406`; keep explicit core requires for clarity.
+- Discarded: reusing a single mutable command opts table regressed to `command_us=59.437500`; keep separate literal opts tables.
+- No-code confirmation of stable command best reran worse (`command_us=58.591699` vs best `56.833203`), so sub-2µs command changes should be treated as noise. Command path appears exhausted.
+- Segment change pending: return to `delta_us` on the broadened four-scenario workload and keep `apply_delta_us`/`command_us` as guardrails.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
