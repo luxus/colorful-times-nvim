@@ -8,9 +8,10 @@ The goal is not to remove Colorful Times features or special-case the benchmark.
 
 ## Metrics
 
-- **Primary**: `delta_us` (µs, lower is better) — median paired Colorful Times setup/startup time minus minimal-switcher setup/startup time across the broadened four-scenario workload.
+- **Primary**: `first_apply_delta_us` (µs, lower is better) — median paired Colorful Times cold first-apply time after setup minus minimal-switcher cold first-apply time across the broadened four-scenario workload.
 - **Secondary**:
-  - `apply_delta_us` — apply/switch parity guardrail.
+  - `delta_us` — setup/startup parity guardrail.
+  - `apply_delta_us` — steady-state apply/switch parity guardrail.
   - `ct_startup_us`, `minimal_startup_us`, `startup_ratio_x` — absolute setup/startup costs and ratio.
   - `ct_resolve_us`, `minimal_resolve_us`, `resolve_delta_us` — schedule/theme resolution cost per call.
   - `ct_apply_us`, `minimal_apply_us` — absolute full apply costs.
@@ -184,4 +185,5 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Benchmark integrity check kept: `autoresearch.checks.sh` now verifies `bench/minimal-switcher.lua` stays under 50 lines so the reference target cannot be weakened accidentally. Checks passed; first run measured `delta_us=-80.368083` with metric movement inside measured noise.
 - Benchmark integrity check kept/confirmed: `autoresearch.checks.sh` now also verifies `bench/minimal-switcher.lua` stays independent of `colorful-times` modules/references. First run measured `delta_us=-82.832194`; no-code confirmation measured `delta_us=-89.192139`. All startup scenario deltas remained negative.
 - Benchmark diagnostics kept/confirmed: added cold first-apply delta/spread metrics so the 100-iteration steady-state apply average does not hide first-switch schedule preprocessing costs. First run measured `first_apply_delta_us=179.000244`, `first_apply_delta_iqr_us=66.843750`, `ct_first_apply_us=1023.125488`, `minimal_first_apply_us=845.479248`; confirmation measured `first_apply_delta_us=197.552246`, `first_apply_delta_iqr_us=156.510498`, `ct_first_apply_us=1037.521240`, `minimal_first_apply_us=847.947998`. Steady-state `apply_delta_us` remained inside noise. Keep first-apply diagnostic-only unless the user explicitly changes target/workload.
-- Benchmark diagnostics kept: per-scenario cold first-apply deltas show where the first-switch gap comes from. First run: `first_apply_delta_empty_us=134.333008`, `first_apply_delta_two_entry_us=142.791992`, `first_apply_delta_disabled_us=17.375977`, `first_apply_delta_hourly_us=315.208008`. The gap is largest for hourly schedules but also visible in enabled non-hourly scenarios; keep diagnostic-only under the current startup primary metric.
+- Benchmark diagnostics kept/confirmed: per-scenario cold first-apply deltas show where the first-switch gap comes from. First run: `first_apply_delta_empty_us=134.333008`, `first_apply_delta_two_entry_us=142.791992`, `first_apply_delta_disabled_us=17.375977`, `first_apply_delta_hourly_us=315.208008`; confirmation: `first_apply_delta_empty_us=133.791016`, `first_apply_delta_two_entry_us=134.166992`, `first_apply_delta_disabled_us=4.458984`, `first_apply_delta_hourly_us=277.666992`. The gap is largest for hourly schedules but also visible in enabled non-hourly scenarios.
+- Segment change pending: cold first-apply is a real switch/apply behavior not covered by the 100-iteration steady-state average. Switch primary to `first_apply_delta_us` while keeping `delta_us`, steady-state `apply_delta_us`, and `command_us` as guardrails. Avoid moving work into setup unless startup guardrail remains clearly faster than minimal.
