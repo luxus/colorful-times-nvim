@@ -8,11 +8,11 @@ The goal is not to remove Colorful Times features or special-case the benchmark.
 
 ## Metrics
 
-- **Primary**: `delta_us` (µs, lower is better) — median Colorful Times startup/setup time minus median minimal-switcher startup/setup time, averaged across benchmark scenarios.
+- **Primary**: `apply_delta_us` (µs, lower is better) — median Colorful Times apply/switch time minus median minimal-switcher apply/switch time, averaged across benchmark scenarios. This is the active second segment after startup/setup reached parity with the minimal switcher.
 - **Secondary**:
-  - `ct_startup_us`, `minimal_startup_us`, `startup_ratio_x` — absolute setup costs and ratio.
+  - `delta_us`, `ct_startup_us`, `minimal_startup_us`, `startup_ratio_x` — setup/startup parity guardrails.
   - `ct_resolve_us`, `minimal_resolve_us`, `resolve_delta_us` — schedule/theme resolution cost per call.
-  - `ct_apply_us`, `minimal_apply_us`, `apply_delta_us` — full apply cost per call with synchronous scheduling in the benchmark harness.
+  - `ct_apply_us`, `minimal_apply_us` — absolute full apply costs.
   - `command_us` — cost to source `plugin/colorful-times.lua` and register user commands.
 
 ## How to Run
@@ -38,7 +38,7 @@ nvim --headless \
 
 ## Benchmark Design
 
-The primary benchmark measures `require("colorful-times").setup(opts)` and `require("bench.minimal-switcher").setup(opts)` from cleared Lua module caches. It averages three scenarios:
+The startup benchmark measures `require("colorful-times").setup(opts)` and `require("bench.minimal-switcher").setup(opts)` from cleared Lua module caches. The active apply benchmark measures full apply/switch calls after setup, with `vim.schedule(fn)` executing `fn()` immediately so both implementations include background assignment and `:colorscheme`. Both benchmarks average three scenarios:
 
 1. Enabled plugin with no schedule and a dark default background.
 2. Enabled plugin with two day/night schedule entries.
@@ -46,7 +46,7 @@ The primary benchmark measures `require("colorful-times").setup(opts)` and `requ
 
 The benchmark intentionally avoids persistence, external system-appearance detection, and user-local state by setting `persist = false` and isolating XDG directories. This keeps the workload deterministic and focused on startup/setup overhead.
 
-The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediately so the measured call includes the real background assignment and `:colorscheme` command. This is a secondary metric only; the primary metric remains startup/setup delta.
+The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediately so the measured call includes the real background assignment and `:colorscheme` command. Startup/setup delta remains a guardrail: do not regress it catastrophically while improving apply time.
 
 ## Files in Scope
 
@@ -83,8 +83,11 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Kept: lazy-loading `state.lua` and `system.lua` from `core.lua` reduced `delta_us` to `41.138672` and `startup_ratio_x` to `1.087762`. This worked because the primary setup path uses `persist=false` and non-system backgrounds, so persistence and system detection are not needed at require time.
 - Kept: lazy-loading `schedule.lua` and requiring it only for validation or runtime schedule resolution reduced `delta_us` to `-12.027344`, making setup roughly equal to the minimal switcher in this benchmark.
 - Kept: caching the lazy schedule module once per validation loop reduced `delta_us` to `-22.083659`; this is likely close to benchmark noise but keeps the validation code simple.
+- Kept: a lightweight core-local setup validator avoids loading `schedule.lua` during startup while preserving synchronous validation errors. This reduced `delta_us` to `-75.263672` and `startup_ratio_x` to `0.834160`. Keep its rules aligned with `schedule.validate_entry()`.
 - Discarded: rewriting `schedule.validate_entry()` to store parsed start/stop locals regressed to `delta_us=-3.222005`; parse-time caching already makes repeated calls cheap.
 - Discarded: manual field-by-field default merging regressed to `delta_us=25.916341`; keep `vim.tbl_deep_extend()` for default config.
 - Discarded: lazy augroup creation in setup regressed to `delta_us=228.875`; keep top-level `nvim_create_augroup()` plus setup-time `nvim_clear_autocmds()`.
 - Discarded: localizing `vim.api` regressed to `delta_us=6.930664`; global lookup overhead is not material here.
+- Discarded: localizing `nvim_create_user_command` improved `command_us` slightly but worsened primary `delta_us` to `-60.694336`; command registration is not part of the current primary target.
+- Segment change: startup/setup parity is achieved (`delta_us=-75.263672`, `startup_ratio_x=0.834160`). The next segment optimizes `apply_delta_us` to keep actual switch/apply cost near the minimal reference as well.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
