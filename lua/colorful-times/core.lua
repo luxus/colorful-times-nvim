@@ -481,8 +481,10 @@ local function validate(opts)
     if type(opts.schedule) ~= "table" then
       return false, "schedule must be an array"
     end
+    local sched
     for i, entry in ipairs(opts.schedule) do
-      local ok, err = schedule().validate_entry(entry)
+      sched = sched or schedule()
+      local ok, err = sched.validate_entry(entry)
       if not ok then return false, string.format("schedule[%d]: %s", i, err) end
     end
   end
