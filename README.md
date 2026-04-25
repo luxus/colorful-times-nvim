@@ -197,7 +197,28 @@ ct.unpin_session()
 
 ## Performance
 
-Colorful Times guarantees zero startup impact. It achieves this by lazily loading heavy modules on their first use. All background detection and file operations use fully asynchronous `vim.uv` APIs. The plugin also pre-caches schedules and uses an efficient LRU cache for time parsing to minimize CPU cycles.
+Colorful Times is designed to stay close to the cost of the simplest possible colorscheme switcher while providing scheduling, persistence, system appearance sync, commands, status output, and the interactive manager TUI.
+
+The repository includes a small independent reference implementation in `bench/minimal-switcher.lua`. It is intentionally kept under 50 lines and does not depend on Colorful Times. The benchmark compares Colorful Times against that reference across empty, scheduled, disabled, and hourly-schedule configurations.
+
+Latest benchmark result from the optimization branch:
+
+| Metric | Result |
+|--------|--------|
+| Startup/setup delta | Colorful Times measured `76.49µs` faster than the minimal switcher (`delta_us=-76.490804`) |
+| Steady apply/switch delta | `3.52µs` slower, which is within benchmark noise (`apply_delta_us=3.521665`) |
+| Cold first apply delta | Improved by about 14% versus the first-apply baseline (`149.531006µs` → `128.552002µs`) |
+| Empty-schedule cold first apply | Near parity with the minimal switcher (`2.208008µs` delta) |
+
+In practice, the larger implementation is not meaningfully slower than a 45-line switcher for the measured shared path, and startup is faster in this benchmark. The extra code buys the features that the minimal switcher intentionally does not include: validation, schedule management, persisted state, system appearance detection, commands, status, session holds, and the TUI.
+
+To run the comparison locally:
+
+```bash
+./autoresearch.sh
+```
+
+The benchmark checks also guard the reference implementation: it must remain under 50 lines and must not reference Colorful Times modules.
 
 ## License
 
