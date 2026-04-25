@@ -127,7 +127,7 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Superseded/discarded: `vim.deepcopy(..., true)` looked faster with independent-median startup delta, but paired startup benchmarking showed regular `vim.deepcopy()` was better (`delta_us=-107.458496` vs noref paired baseline `-76.968262`). Keep regular deepcopy.
 - No-code confirmation of the noref deepcopy state reran much worse (`delta_us=56.718994`), showing startup delta is noisy when computed from independent medians.
 - Benchmark stability update: `delta_us` now uses the median of paired Colorful Times/minimal startup deltas. Paired startup baseline after noref deepcopy: `delta_us=-76.968262`.
-- Benchmark stability update pending: average five startup cycles per startup sample before computing paired `delta_us`.
+- Benchmark stability update: `CT_BENCH_STARTUP_ITERS=5` averages five startup cycles per sample before paired `delta_us`. Stable paired startup baseline: `delta_us=-76.885498`.
 - Discarded: caching core-local setup time validation results regressed to `delta_us=-80.833252`; keep simple uncached validation.
 - Discarded: combining FocusLost/FocusGained into one autocmd callback regressed to `delta_us=-75.270752`; keep separate autocmd registrations.
 - Discarded: adding an explicit `M.setup` wrapper in `init.lua` regressed to `delta_us=-98.062500`; metatable lazy loading remains better.

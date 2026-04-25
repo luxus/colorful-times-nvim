@@ -572,7 +572,7 @@ function M.setup(opts)
       return
     end
 
-    local safe = vim.deepcopy(opts)
+    local safe = vim.deepcopy(opts, true)
     if safe.default then
       M.config.default = vim.tbl_deep_extend("force", M.config.default, safe.default)
       safe.default = nil
@@ -584,7 +584,7 @@ function M.setup(opts)
     _parsed_schedule = nil
   end
 
-  _base_config = vim.deepcopy(M.config)
+  _base_config = vim.deepcopy(M.config, true)
 
   -- Register focus autocmds unconditionally (toggle needs them later)
   vim.api.nvim_clear_autocmds({ group = _augroup })
