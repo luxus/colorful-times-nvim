@@ -148,6 +148,20 @@ local function minimal_startup_once()
   return total / #scenarios
 end
 
+local function collect_startup_pair()
+  local ct_values, minimal_values, delta_values = {}, {}, {}
+  for _ = 1, warmup do
+    ct_startup_once()
+    minimal_startup_once()
+  end
+  for i = 1, samples do
+    ct_values[i] = ct_startup_once()
+    minimal_values[i] = minimal_startup_once()
+    delta_values[i] = ct_values[i] - minimal_values[i]
+  end
+  return median(delta_values), median(ct_values), median(minimal_values)
+end
+
 local function setup_ct(opts)
   clear_ct()
   local ct = require("colorful-times")
@@ -252,13 +266,11 @@ local function command_once()
   return total / command_iters
 end
 
-local ct_startup_us = collect(ct_startup_once)
-local minimal_startup_us = collect(minimal_startup_once)
+local delta_us, ct_startup_us, minimal_startup_us = collect_startup_pair()
 local ct_resolve_us = collect(ct_resolve_once)
 local minimal_resolve_us = collect(minimal_resolve_once)
 local apply_delta_us, ct_apply_us, minimal_apply_us = collect_apply_pair()
 local command_us = collect(command_once)
-local delta_us = ct_startup_us - minimal_startup_us
 local ratio_x = ct_startup_us / minimal_startup_us
 local resolve_delta_us = ct_resolve_us - minimal_resolve_us
 

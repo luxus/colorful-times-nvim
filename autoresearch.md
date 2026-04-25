@@ -122,5 +122,7 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Discarded: removing explicit `require("colorful-times.core")` from callbacks regressed to `command_us=58.816406`; keep explicit core requires for clarity.
 - Discarded: reusing a single mutable command opts table regressed to `command_us=59.437500`; keep separate literal opts tables.
 - No-code confirmation of stable command best reran worse (`command_us=58.591699` vs best `56.833203`), so sub-2µs command changes should be treated as noise. Command path appears exhausted.
-- Segment change pending: return to `delta_us` on the broadened four-scenario workload and keep `apply_delta_us`/`command_us` as guardrails.
+- Segment change: returned to `delta_us` on the broadened four-scenario workload and keep `apply_delta_us`/`command_us` as guardrails. Baseline: `delta_us=-84.239502`.
+- Kept: using `vim.deepcopy(..., true)` for setup-time config copies improved `delta_us` to `-90.166504`. Configs are expected to be acyclic; tests passed.
+- No-code confirmation of the noref deepcopy state reran much worse (`delta_us=56.718994`), showing startup delta is noisy when computed from independent medians. Benchmark stability update pending: compute `delta_us` from paired startup samples like `apply_delta_us`.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
