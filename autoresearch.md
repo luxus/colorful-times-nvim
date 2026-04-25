@@ -23,9 +23,9 @@ The goal is not to remove Colorful Times features or special-case the benchmark.
 
 The script runs headless Neovim with isolated XDG directories and prints `METRIC name=value` lines. Defaults are tuned to keep iterations fast while still using medians:
 
-- `CT_BENCH_SAMPLES=31`
+- `CT_BENCH_SAMPLES=21`
 - `CT_BENCH_WARMUP=3`
-- `CT_BENCH_APPLY_ITERS=20`
+- `CT_BENCH_APPLY_ITERS=100`
 - `CT_BENCH_RESOLVE_ITERS=20000`
 
 Correctness checks run automatically through `autoresearch.checks.sh` after passing benchmark runs:
@@ -92,4 +92,10 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Segment change: startup/setup parity is achieved (`delta_us=-75.263672`, `startup_ratio_x=0.834160`). The next segment optimizes `apply_delta_us` to keep actual switch/apply cost near the minimal reference as well.
 - Apply baseline after segment reset: `apply_delta_us=17.763200`.
 - Kept: scalar theme resolution for hot paths avoids allocating a context table in `apply_colorscheme()` and `resolve_theme()`. This reduced `apply_delta_us` to `4.365283` while keeping startup faster than the minimal reference.
+- Kept: `apply_colorscheme()` now applies synchronously when not in a fast event and still schedules from fast-event contexts. This reduced `apply_delta_us` to `-11.345133`.
+- Discarded: localizing `vim.in_fast_event` regressed to `apply_delta_us=21.918734`.
+- Discarded: removing the `vim.in_fast_event` existence guard regressed to `apply_delta_us=7.679850`; keep the guarded form.
+- Discarded: inlining `apply_when_safe()` in the common non-system branch regressed to `apply_delta_us=13.908333`; keep the helper.
+- Discarded: skipping schedule lookup for empty schedules improved versus segment baseline but regressed versus current best (`apply_delta_us=1.833317` vs `-11.345133`). Revisit only if the benchmark separates cold first-apply from steady-state apply.
+- Benchmark stability update pending: increase apply iterations from 20 to 100 and reduce samples from 31 to 21 to make `apply_delta_us` less sensitive to one noisy `:colorscheme` call.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
