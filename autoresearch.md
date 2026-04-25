@@ -8,9 +8,9 @@ The goal is not to remove Colorful Times features or special-case the benchmark.
 
 ## Metrics
 
-- **Primary**: `apply_delta_us` (µs, lower is better) — median paired Colorful Times apply/switch time minus minimal-switcher apply/switch time across the broadened four-scenario workload.
+- **Primary**: `delta_us` (µs, lower is better) — median paired Colorful Times setup/startup time minus minimal-switcher setup/startup time across the broadened four-scenario workload.
 - **Secondary**:
-  - `delta_us` — setup/startup parity guardrail.
+  - `apply_delta_us` — apply/switch parity guardrail.
   - `ct_startup_us`, `minimal_startup_us`, `startup_ratio_x` — absolute setup/startup costs and ratio.
   - `ct_resolve_us`, `minimal_resolve_us`, `resolve_delta_us` — schedule/theme resolution cost per call.
   - `ct_apply_us`, `minimal_apply_us` — absolute full apply costs.
@@ -135,7 +135,10 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Checks-failed probe: removing focus autocmds entirely measured `delta_us=-108.054004`, showing an upper-bound cost but failing correctness.
 - Discarded: conditional focus autocmd registration with updated tests measured `delta_us=-60.837695`; schedule scanning/sync logic outweighed avoided autocmd API calls. Keep unconditional focus autocmds.
 - Segment change pending: startup delta is again at parity under the stable paired benchmark. Next segment targets `apply_delta_us` to explore the schedule runtime split idea while keeping `delta_us` and `command_us` as guardrails.
-- Benchmark fairness update pending: alternate Colorful Times/minimal measurement order inside paired startup and apply samples to reduce ordering bias.
+- Benchmark fairness update: paired startup/apply samples now alternate Colorful Times/minimal measurement order to reduce ordering bias. Alternating-order apply baseline: `apply_delta_us=0.352397` with `delta_us=-84.464648`.
+- No-code confirmation of alternating-order apply baseline reran at `apply_delta_us=3.508440`; remaining apply differences are small/noisy, so avoid large schedule-runtime refactors unless they show repeated >5µs wins or simplify code.
+- Checks-failed/discarded: moving the `open()` wrapper from `core.lua` to `init.lua` worsened apply and broke lazy-loading expectations; keep `open()` in core.
+- Discarded: core-only `schedule_runtime.lua` split measured `apply_delta_us=0.152603`, only 0.20µs better than baseline, while duplicating schedule logic and worsening `command_us`; not keepable.
 - Discarded: caching core-local setup time validation results regressed to `delta_us=-80.833252`; keep simple uncached validation.
 - Discarded: combining FocusLost/FocusGained into one autocmd callback regressed to `delta_us=-75.270752`; keep separate autocmd registrations.
 - Discarded: adding an explicit `M.setup` wrapper in `init.lua` regressed to `delta_us=-98.062500`; metatable lazy loading remains better.
@@ -146,3 +149,5 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Discarded: skipping the deferred setup callback for `persist=false` and `enabled=false` regressed to `delta_us=-94.541260`; keep the unconditional defer path.
 - Discarded: removing explicit nil defaults from the public config table regressed to `delta_us=-94.979492`; keep them for readability.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
+- Discarded: localizing `cfg.default` inside `resolve_theme_parts()` regressed to `apply_delta_us=2.395522`; keep current direct lookups.
+- Segment change pending: apply is at parity/noise under alternating paired measurement. Switch primary back to stable paired `delta_us` to evaluate only structural startup splits from the remaining backlog, keeping `apply_delta_us` and `command_us` as guardrails.
