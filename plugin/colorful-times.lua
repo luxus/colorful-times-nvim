@@ -2,32 +2,34 @@
 -- Loaded automatically by Neovim at startup via the plugin/ directory.
 -- Must be fast: only registers commands, no heavy requires.
 
-vim.api.nvim_create_user_command("ColorfulTimes", function()
+local create_user_command = vim.api.nvim_create_user_command
+
+create_user_command("ColorfulTimes", function()
   require("colorful-times.core")
   require("colorful-times").open()
 end, { desc = "Open colorful-times schedule manager" })
 
-vim.api.nvim_create_user_command("ColorfulTimesEnable", function()
+create_user_command("ColorfulTimesEnable", function()
   require("colorful-times.core")
   require("colorful-times").enable()
 end, { desc = "Enable colorful-times" })
 
-vim.api.nvim_create_user_command("ColorfulTimesDisable", function()
+create_user_command("ColorfulTimesDisable", function()
   require("colorful-times.core")
   require("colorful-times").disable()
 end, { desc = "Disable colorful-times" })
 
-vim.api.nvim_create_user_command("ColorfulTimesToggle", function()
+create_user_command("ColorfulTimesToggle", function()
   require("colorful-times.core")
   require("colorful-times").toggle()
 end, { desc = "Toggle colorful-times on/off" })
 
-vim.api.nvim_create_user_command("ColorfulTimesReload", function()
+create_user_command("ColorfulTimesReload", function()
   require("colorful-times.core")
   require("colorful-times").reload()
 end, { desc = "Reload colorful-times configuration" })
 
-vim.api.nvim_create_user_command("ColorfulTimesStatus", function()
+create_user_command("ColorfulTimesStatus", function()
   require("colorful-times.core")
   local status = require("colorful-times").status()
 
