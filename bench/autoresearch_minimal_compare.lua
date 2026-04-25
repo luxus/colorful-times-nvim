@@ -135,6 +135,20 @@ local function collect(fn)
   return median(values)
 end
 
+local function collect_spread(fn)
+  local values = {}
+  for _ = 1, warmup do
+    fn()
+  end
+  for i = 1, samples do
+    values[i] = fn()
+  end
+  local value = median(values)
+  local p25 = percentile_sorted(values, 0.25)
+  local p75 = percentile_sorted(values, 0.75)
+  return value, p25, p75
+end
+
 local function ct_startup_once()
   local total = 0
   local scenario_totals = { 0, 0, 0, 0 }
@@ -337,11 +351,12 @@ local delta_us, ct_startup_us, minimal_startup_us, delta_p25_us, delta_p75_us, s
 local ct_resolve_us = collect(ct_resolve_once)
 local minimal_resolve_us = collect(minimal_resolve_once)
 local apply_delta_us, ct_apply_us, minimal_apply_us, apply_delta_p25_us, apply_delta_p75_us, scenario_apply_deltas = collect_apply_pair()
-local command_us = collect(command_once)
+local command_us, command_p25_us, command_p75_us = collect_spread(command_once)
 local ratio_x = ct_startup_us / minimal_startup_us
 local resolve_delta_us = ct_resolve_us - minimal_resolve_us
 local delta_iqr_us = delta_p75_us - delta_p25_us
 local apply_delta_iqr_us = apply_delta_p75_us - apply_delta_p25_us
+local command_iqr_us = command_p75_us - command_p25_us
 
 local metrics = {
   { "delta_us", delta_us },
@@ -369,6 +384,9 @@ local metrics = {
   { "apply_delta_disabled_us", scenario_apply_deltas.disabled },
   { "apply_delta_hourly_us", scenario_apply_deltas.hourly },
   { "command_us", command_us },
+  { "command_p25_us", command_p25_us },
+  { "command_p75_us", command_p75_us },
+  { "command_iqr_us", command_iqr_us },
 }
 
 for _, item in ipairs(metrics) do
