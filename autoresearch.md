@@ -92,10 +92,14 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Segment change: startup/setup parity is achieved (`delta_us=-75.263672`, `startup_ratio_x=0.834160`). The next segment optimizes `apply_delta_us` to keep actual switch/apply cost near the minimal reference as well.
 - Apply baseline after segment reset: `apply_delta_us=17.763200`.
 - Kept: scalar theme resolution for hot paths avoids allocating a context table in `apply_colorscheme()` and `resolve_theme()`. This reduced `apply_delta_us` to `4.365283` while keeping startup faster than the minimal reference.
-- Kept: `apply_colorscheme()` now applies synchronously when not in a fast event and still schedules from fast-event contexts. This reduced `apply_delta_us` to `-11.345133`.
+- Superseded: `apply_colorscheme()` applying synchronously outside fast events looked faster under the noisy 20-iteration apply benchmark, but the stable 100-iteration benchmark showed unconditional scheduling was better and safer.
+- Kept: reverting to unconditional `vim.schedule()` for apply under the stable benchmark reduced `apply_delta_us` to `-16.010697` and preserved prior async timing semantics.
+- Discarded: removing the small apply scheduling helper and inlining `vim.schedule()` regressed to `apply_delta_us=15.905830`; keep the helper.
 - Discarded: localizing `vim.in_fast_event` regressed to `apply_delta_us=21.918734`.
-- Discarded: removing the `vim.in_fast_event` existence guard regressed to `apply_delta_us=7.679850`; keep the guarded form.
+- Discarded: removing the `vim.in_fast_event` existence guard regressed to `apply_delta_us=7.679850`; this path was later superseded by unconditional scheduling.
 - Discarded: inlining `apply_when_safe()` in the common non-system branch regressed to `apply_delta_us=13.908333`; keep the helper.
 - Discarded: skipping schedule lookup for empty schedules improved versus segment baseline but regressed versus current best (`apply_delta_us=1.833317` vs `-11.345133`). Revisit only if the benchmark separates cold first-apply from steady-state apply.
-- Benchmark stability update pending: increase apply iterations from 20 to 100 and reduce samples from 31 to 21 to make `apply_delta_us` less sensitive to one noisy `:colorscheme` call.
+- Benchmark stability update: apply iterations increased from 20 to 100 and samples reduced from 31 to 21. Stable segment baseline was `apply_delta_us=18.804030`; keep results in this segment separate from earlier noisy apply runs.
+- No-code confirmation of the stable apply best reran at `apply_delta_us=-1.697780`, worse than the best `-16.010697` but still better than baseline. Treat sub-10µs apply changes cautiously.
+- Benchmark stability update pending: compute `apply_delta_us` from paired Colorful Times/minimal apply samples instead of subtracting independent medians.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
