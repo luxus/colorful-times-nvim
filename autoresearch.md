@@ -155,4 +155,7 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Discarded: lazy access to `vim.uv` in timer-start paths regressed to `delta_us=-93.674902`; keep top-level `local uv = vim.uv`.
 - Kept but weak: replacing setup validation `ipairs(opts.schedule)` with a numeric loop improved one run from `-107.785400` to `-111.995996`; no-code confirmation reran worse at `-86.806396`, but reverting back to `ipairs` also worsened at `-81.431348`. Keep numeric loop for now, but do not generalize to other loops.
 - Discarded: binding `opts.schedule` to a local before the validation loop regressed to `delta_us=-83.341748`; keep the numeric loop exactly as committed.
-- Benchmark stability change pending: increase default samples from 21 to 31 to reduce noise before more sub-10µs startup experiments.
+- Benchmark stability change: increased default samples from 21 to 31 to reduce noise before more sub-10µs startup experiments. New 31-sample baseline: `delta_us=-92.008154`, `apply_delta_us=1.292185`, `command_us=56.337500`.
+- Discarded: localizing core autocmd API functions regressed to `delta_us=-90.428906`; keep direct `vim.api` calls.
+- Discarded: hoisting focus autocmd callbacks/options regressed to `delta_us=-84.466602`; keep inline setup callbacks/options.
+- Experiment pending: hoist the deferred setup callback into a module-local function while keeping the unconditional `vim.defer_fn(..., 0)` behavior.

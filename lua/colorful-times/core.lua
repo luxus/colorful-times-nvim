@@ -563,6 +563,17 @@ local function validate(opts)
   return true
 end
 
+local function run_deferred_setup()
+  load_persisted_state()
+  if not M.config.enabled then
+    return
+  end
+
+  M.apply_colorscheme()
+  arm_schedule_timer()
+  start_poll_timer()
+end
+
 ---@param opts ColorfulTimes.Config?
 function M.setup(opts)
   if opts then
@@ -605,16 +616,7 @@ function M.setup(opts)
     end,
   })
 
-  vim.defer_fn(function()
-    load_persisted_state()
-    if not M.config.enabled then
-      return
-    end
-
-    M.apply_colorscheme()
-    arm_schedule_timer()
-    start_poll_timer()
-  end, 0)
+  vim.defer_fn(run_deferred_setup, 0)
 end
 
 -- TUI entry point
