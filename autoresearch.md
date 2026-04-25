@@ -38,11 +38,12 @@ nvim --headless \
 
 ## Benchmark Design
 
-The startup benchmark measures `require("colorful-times").setup(opts)` and `require("bench.minimal-switcher").setup(opts)` from cleared Lua module caches. The active apply benchmark measures full apply/switch calls after setup, with `vim.schedule(fn)` executing `fn()` immediately so both implementations include background assignment and `:colorscheme`. Both benchmarks average three scenarios:
+The startup benchmark measures `require("colorful-times").setup(opts)` and `require("bench.minimal-switcher").setup(opts)` from cleared Lua module caches. The active apply benchmark measures full apply/switch calls after setup, with `vim.schedule(fn)` executing `fn()` immediately so both implementations include background assignment and `:colorscheme`. Both benchmarks average four scenarios:
 
 1. Enabled plugin with no schedule and a dark default background.
 2. Enabled plugin with two day/night schedule entries.
 3. Disabled plugin with one schedule entry and a light default background.
+4. Enabled plugin with a representative 24-entry hourly schedule.
 
 The benchmark intentionally avoids persistence, external system-appearance detection, and user-local state by setting `persist = false` and isolating XDG directories. This keeps the workload deterministic and focused on startup/setup overhead.
 
@@ -101,5 +102,8 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Discarded: skipping schedule lookup for empty schedules improved versus segment baseline but regressed versus current best (`apply_delta_us=1.833317` vs `-11.345133`). Revisit only if the benchmark separates cold first-apply from steady-state apply.
 - Benchmark stability update: apply iterations increased from 20 to 100 and samples reduced from 31 to 21. Stable segment baseline was `apply_delta_us=18.804030`; keep results in this segment separate from earlier noisy apply runs.
 - No-code confirmation of the stable apply best reran at `apply_delta_us=-1.697780`, worse than the best `-16.010697` but still better than baseline. Treat sub-10µs apply changes cautiously.
-- Benchmark stability update pending: compute `apply_delta_us` from paired Colorful Times/minimal apply samples instead of subtracting independent medians.
+- Benchmark stability update: `apply_delta_us` now uses the median of paired Colorful Times/minimal apply deltas rather than subtracting independent medians. Paired baseline is `apply_delta_us=-0.055140`, effectively parity with the minimal switcher.
+- Discarded: retrying the empty-schedule fast path under paired apply still regressed to `apply_delta_us=3.585003`.
+- Discarded: reverting hot apply/resolve calls to table-based context resolution regressed to `apply_delta_us=8.637777`; scalar resolution remains useful.
+- Benchmark broadened pending: add a representative 24-entry hourly schedule scenario so startup/apply parity is not overfit to tiny schedules.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.

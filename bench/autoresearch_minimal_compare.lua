@@ -27,6 +27,19 @@ end)
 
 local sink = 0
 
+local function hourly_schedule()
+  local schedule = {}
+  for hour = 0, 23 do
+    schedule[#schedule + 1] = {
+      start = string.format("%02d:00", hour),
+      stop = string.format("%02d:00", (hour + 1) % 24),
+      colorscheme = "default",
+      background = hour >= 7 and hour < 19 and "light" or "dark",
+    }
+  end
+  return schedule
+end
+
 local scenarios = {
   {
     enabled = true,
@@ -50,6 +63,12 @@ local scenarios = {
     schedule = {
       { start = "09:00", stop = "17:00", colorscheme = "default", background = "light" },
     },
+  },
+  {
+    enabled = true,
+    persist = false,
+    default = { colorscheme = "default", background = "dark", themes = { light = "default", dark = "default" } },
+    schedule = hourly_schedule(),
   },
 }
 
