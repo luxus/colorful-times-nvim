@@ -487,6 +487,8 @@ end
 ---@param entry unknown
 ---@return boolean ok
 ---@return string? error
+---@return integer? start_time
+---@return integer? stop_time
 local function validate_schedule_entry(entry)
   if type(entry) ~= "table" then
     return false, "entry must be a table"
@@ -516,13 +518,14 @@ local function validate_schedule_entry(entry)
     end
   end
 
-  return true
+  return true, nil, start_time, stop_time
 end
 
 ---Validate user options
 ---@param opts table
 ---@return boolean ok
 ---@return string? error
+---@return table? parsed_schedule
 local function validate(opts)
   if opts.enabled ~= nil and type(opts.enabled) ~= "boolean" then
     return false, "enabled must be a boolean"
@@ -538,13 +541,32 @@ local function validate(opts)
     return false, "persist must be a boolean"
   end
 
+  local parsed_schedule
   if opts.schedule ~= nil then
     if type(opts.schedule) ~= "table" then
       return false, "schedule must be an array"
     end
+    parsed_schedule = {}
+    local boundaries_set = {}
     for i, entry in ipairs(opts.schedule) do
-      local ok, err = validate_schedule_entry(entry)
+      local ok, err, start_time, stop_time = validate_schedule_entry(entry)
       if not ok then return false, string.format("schedule[%d]: %s", i, err) end
+      parsed_schedule[i] = {
+        start_time = start_time,
+        stop_time = stop_time,
+        colorscheme = entry.colorscheme,
+        background = entry.background,
+      }
+      boundaries_set[start_time] = true
+      boundaries_set[stop_time] = true
+    end
+    if #parsed_schedule > 0 then
+      local boundaries = {}
+      for t in pairs(boundaries_set) do
+        boundaries[#boundaries + 1] = t
+      end
+      table.sort(boundaries)
+      parsed_schedule._boundaries = boundaries
     end
   end
 
@@ -571,13 +593,13 @@ local function validate(opts)
     end
   end
 
-  return true
+  return true, nil, parsed_schedule
 end
 
 ---@param opts ColorfulTimes.Config?
 function M.setup(opts)
   if opts then
-    local ok, err = validate(opts)
+    local ok, err, parsed_schedule = validate(opts)
     if not ok then
       vim.notify("colorful-times: " .. err, vim.log.levels.ERROR)
       return
@@ -592,7 +614,16 @@ function M.setup(opts)
       M.config[k] = v
     end
 
-    _parsed_schedule = nil
+    if parsed_schedule then
+      local default_bg = M.config.default.background
+      for i = 1, #parsed_schedule do
+        local entry = parsed_schedule[i]
+        entry.background = entry.background or default_bg
+      end
+      _parsed_schedule = parsed_schedule
+    else
+      _parsed_schedule = nil
+    end
   end
 
   _base_config = vim.deepcopy(M.config)
