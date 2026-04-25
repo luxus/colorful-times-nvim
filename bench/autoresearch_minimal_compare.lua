@@ -331,6 +331,54 @@ local function collect_apply_pair()
   return delta, median(ct_values), median(minimal_values), delta_p25, delta_p75, scenario_deltas
 end
 
+local function ct_first_apply_once()
+  vim.schedule = function(fn) fn() end
+  local total = 0
+  for _, opts in ipairs(scenarios) do
+    local ct = setup_ct(opts)
+    local t0 = now_us()
+    ct.apply_colorscheme()
+    total = total + (now_us() - t0)
+  end
+  vim.schedule = orig_schedule
+  clear_ct()
+  return total / #scenarios
+end
+
+local function minimal_first_apply_once()
+  local total = 0
+  for _, opts in ipairs(scenarios) do
+    local mini = setup_minimal(opts)
+    local t0 = now_us()
+    mini.apply(advance_min())
+    total = total + (now_us() - t0)
+  end
+  clear_minimal()
+  return total / #scenarios
+end
+
+local function collect_first_apply_pair()
+  local ct_values, minimal_values, delta_values = {}, {}, {}
+  for _ = 1, warmup do
+    ct_first_apply_once()
+    minimal_first_apply_once()
+  end
+  for i = 1, samples do
+    if i % 2 == 0 then
+      minimal_values[i] = minimal_first_apply_once()
+      ct_values[i] = ct_first_apply_once()
+    else
+      ct_values[i] = ct_first_apply_once()
+      minimal_values[i] = minimal_first_apply_once()
+    end
+    delta_values[i] = ct_values[i] - minimal_values[i]
+  end
+  local delta = median(delta_values)
+  local delta_p25 = percentile_sorted(delta_values, 0.25)
+  local delta_p75 = percentile_sorted(delta_values, 0.75)
+  return delta, median(ct_values), median(minimal_values), delta_p25, delta_p75
+end
+
 local function command_once()
   local total = 0
   for _ = 1, command_iters do
@@ -351,11 +399,13 @@ local delta_us, ct_startup_us, minimal_startup_us, delta_p25_us, delta_p75_us, s
 local ct_resolve_us = collect(ct_resolve_once)
 local minimal_resolve_us = collect(minimal_resolve_once)
 local apply_delta_us, ct_apply_us, minimal_apply_us, apply_delta_p25_us, apply_delta_p75_us, scenario_apply_deltas = collect_apply_pair()
+local first_apply_delta_us, ct_first_apply_us, minimal_first_apply_us, first_apply_delta_p25_us, first_apply_delta_p75_us = collect_first_apply_pair()
 local command_us, command_p25_us, command_p75_us = collect_spread(command_once)
 local ratio_x = ct_startup_us / minimal_startup_us
 local resolve_delta_us = ct_resolve_us - minimal_resolve_us
 local delta_iqr_us = delta_p75_us - delta_p25_us
 local apply_delta_iqr_us = apply_delta_p75_us - apply_delta_p25_us
+local first_apply_delta_iqr_us = first_apply_delta_p75_us - first_apply_delta_p25_us
 local command_iqr_us = command_p75_us - command_p25_us
 
 local metrics = {
@@ -383,6 +433,12 @@ local metrics = {
   { "apply_delta_two_entry_us", scenario_apply_deltas.two_entry },
   { "apply_delta_disabled_us", scenario_apply_deltas.disabled },
   { "apply_delta_hourly_us", scenario_apply_deltas.hourly },
+  { "first_apply_delta_us", first_apply_delta_us },
+  { "first_apply_delta_p25_us", first_apply_delta_p25_us },
+  { "first_apply_delta_p75_us", first_apply_delta_p75_us },
+  { "first_apply_delta_iqr_us", first_apply_delta_iqr_us },
+  { "ct_first_apply_us", ct_first_apply_us },
+  { "minimal_first_apply_us", minimal_first_apply_us },
   { "command_us", command_us },
   { "command_p25_us", command_p25_us },
   { "command_p75_us", command_p75_us },

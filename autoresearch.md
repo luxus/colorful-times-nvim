@@ -17,7 +17,9 @@ The goal is not to remove Colorful Times features or special-case the benchmark.
   - `command_us` — plugin command registration cost guardrail.
 - **Diagnostics**:
   - `delta_p25_us`, `delta_p75_us`, `delta_iqr_us` — paired startup delta spread for judging noise.
-  - `apply_delta_p25_us`, `apply_delta_p75_us`, `apply_delta_iqr_us` — paired apply delta spread for judging noise.
+  - `apply_delta_p25_us`, `apply_delta_p75_us`, `apply_delta_iqr_us` — paired steady-state apply delta spread for judging noise.
+  - `first_apply_delta_us`, `first_apply_delta_p25_us`, `first_apply_delta_p75_us`, `first_apply_delta_iqr_us` — cold first-apply delta/spread after setup, before schedule preprocessing is amortized.
+  - `ct_first_apply_us`, `minimal_first_apply_us` — absolute cold first-apply costs.
   - `command_p25_us`, `command_p75_us`, `command_iqr_us` — command registration spread for judging noise.
   - `delta_empty_us`, `delta_two_entry_us`, `delta_disabled_us`, `delta_hourly_us` — per-scenario startup deltas.
   - `apply_delta_empty_us`, `apply_delta_two_entry_us`, `apply_delta_disabled_us`, `apply_delta_hourly_us` — per-scenario apply deltas.
@@ -179,4 +181,5 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Benchmark diagnostics kept: per-scenario diagnostics now reuse existing paired startup/apply samples instead of running separate scenario passes, preserving metric names while reducing benchmark runtime from ~34s back to ~17s. First refactor run: `delta_us=-83.709554`, `delta_iqr_us=39.076362`, `apply_delta_iqr_us=14.074797`. No-code confirmation reran noisier at `delta_us=-67.328722`, but all scenario startup deltas remained faster than minimal and apply scenario deltas remained within IQR; keep the refactor for runtime/diagnostic quality.
 - Benchmark diagnostics kept/confirmed: added `command_p25_us`, `command_p75_us`, and `command_iqr_us` so future command registration tweaks are judged against measured command noise. First run measured `command_us=57.325098`, `command_iqr_us=4.775098`; confirmation measured `command_us=60.004199`, `command_iqr_us=6.620801`, confirming previous sub-2µs command tweaks were below noise.
 - Benchmark integrity check kept: `autoresearch.checks.sh` now verifies `bench/minimal-switcher.lua` stays under 50 lines so the reference target cannot be weakened accidentally. Checks passed; first run measured `delta_us=-80.368083` with metric movement inside measured noise.
-- Benchmark integrity check kept: `autoresearch.checks.sh` now also verifies `bench/minimal-switcher.lua` stays independent of `colorful-times` modules/references. Checks passed; first run measured `delta_us=-82.832194` with all startup scenario deltas negative.
+- Benchmark integrity check kept/confirmed: `autoresearch.checks.sh` now also verifies `bench/minimal-switcher.lua` stays independent of `colorful-times` modules/references. First run measured `delta_us=-82.832194`; no-code confirmation measured `delta_us=-89.192139`. All startup scenario deltas remained negative.
+- Benchmark diagnostics pending: add cold first-apply delta/spread metrics so the 100-iteration steady-state apply average does not hide first-switch schedule preprocessing costs.
