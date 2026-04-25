@@ -67,32 +67,25 @@ end
 
 -- ─── Theme Resolution ────────────────────────────────────────────────────────
 
----Resolve current theme based on config and schedule
----@return table
-local function resolve_theme_context()
+---Resolve current theme as scalar values for hot paths.
+---@return string colorscheme
+---@return string background
+---@return boolean use_default_theme_overrides
+---@return string source
+---@return boolean pinned
+---@return string? resolved_background
+---@return table? session_pin
+local function resolve_theme_parts()
   local pin = _runtime.session_pin
   if pin then
-    return {
-      source = "session_pin",
-      colorscheme = pin.colorscheme,
-      background = pin.background,
-      resolved_background = pin.resolved_background,
-      use_default_theme_overrides = false,
-      pinned = true,
-      session_pin = vim.deepcopy(pin),
-    }
+    return pin.colorscheme, pin.background, false, "session_pin", true, pin.resolved_background, pin
   end
 
   local cfg = M.config
   if not cfg.enabled then
     local bg = cfg.default.background
     local cs = bg ~= "system" and cfg.default.themes[bg] or cfg.default.colorscheme
-    return {
-      source = "default",
-      colorscheme = cs or cfg.default.colorscheme,
-      background = bg,
-      use_default_theme_overrides = true,
-    }
+    return cs or cfg.default.colorscheme, bg, true, "default", false
   end
 
   local current_mins = now_mins()
@@ -101,22 +94,30 @@ local function resolve_theme_context()
   local active = sched.get_active_entry(_parsed_schedule, current_mins)
 
   if active then
-    return {
-      source = "schedule",
-      colorscheme = active.colorscheme,
-      background = active.background,
-      use_default_theme_overrides = false,
-    }
+    return active.colorscheme, active.background, false, "schedule", false
   end
 
   local bg = cfg.default.background
   local cs = bg ~= "system" and cfg.default.themes[bg] or cfg.default.colorscheme
-  return {
-    source = "default",
-    colorscheme = cs or cfg.default.colorscheme,
+  return cs or cfg.default.colorscheme, bg, true, "default", false
+end
+
+---Resolve current theme based on config and schedule
+---@return table
+local function resolve_theme_context()
+  local cs, bg, use_default_theme_overrides, source, pinned, resolved_background, pin = resolve_theme_parts()
+  local context = {
+    source = source,
+    colorscheme = cs,
     background = bg,
-    use_default_theme_overrides = true,
+    use_default_theme_overrides = use_default_theme_overrides,
   }
+  if pinned then
+    context.resolved_background = resolved_background
+    context.pinned = true
+    context.session_pin = vim.deepcopy(pin)
+  end
+  return context
 end
 
 ---Resolve current theme based on config and schedule
@@ -124,8 +125,8 @@ end
 ---@return string background
 ---@return boolean use_default_theme_overrides
 function M.resolve_theme()
-  local resolved = resolve_theme_context()
-  return resolved.colorscheme, resolved.background, resolved.use_default_theme_overrides
+  local cs, bg, use_default_theme_overrides = resolve_theme_parts()
+  return cs, bg, use_default_theme_overrides
 end
 
 ---@return table
@@ -166,13 +167,10 @@ end
 
 ---Apply theme with optional async system detection
 function M.apply_colorscheme()
-  local resolved = resolve_theme_context()
-  local cs = resolved.colorscheme
-  local bg = resolved.background
-  local use_default_theme_overrides = resolved.use_default_theme_overrides
+  local cs, bg, use_default_theme_overrides, _, pinned, resolved_background = resolve_theme_parts()
 
-  if resolved.pinned then
-    local concrete_bg = resolved.resolved_background
+  if pinned then
+    local concrete_bg = resolved_background
     if concrete_bg ~= "light" and concrete_bg ~= "dark" then
       concrete_bg = bg ~= "system" and bg or (_previous_bg or vim.o.background or "dark")
     end
