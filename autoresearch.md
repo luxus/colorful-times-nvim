@@ -26,6 +26,7 @@ The script runs headless Neovim with isolated XDG directories and prints `METRIC
 - `CT_BENCH_SAMPLES=21`
 - `CT_BENCH_WARMUP=3`
 - `CT_BENCH_APPLY_ITERS=100`
+- `CT_BENCH_COMMAND_ITERS=10`
 - `CT_BENCH_RESOLVE_ITERS=20000`
 
 Correctness checks run automatically through `autoresearch.checks.sh` after passing benchmark runs:
@@ -110,5 +111,11 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 - Discarded: precomputing parsed schedules during `setup()` for `persist=false` configs regressed to `apply_delta_us=10.080420` and broke startup parity (`delta_us=52.405762`). Keep lazy schedule preprocessing.
 - Discarded: replacing `table.insert()` with direct array appends in `schedule.preprocess()` regressed to `apply_delta_us=5.346250`; keep `table.insert()`.
 - Discarded: caching active schedule entries for non-overlapping schedules regressed to `apply_delta_us=8.048337`; cache checks/preprocess overhead outweighed lookup savings.
-- Segment change pending: setup/apply parity is achieved under the broadened paired benchmark. Next segment targets `command_us` as remaining startup-adjacent overhead, while keeping `apply_delta_us` and `delta_us` as guardrails.
+- Segment change: setup/apply parity is achieved under the broadened paired benchmark. Current segment targets `command_us` as remaining startup-adjacent overhead, while keeping `apply_delta_us` and `delta_us` as guardrails.
+- Command baseline: `command_us=80.750000`.
+- Kept: localizing `vim.api.nvim_create_user_command` in `plugin/colorful-times.lua` reduced `command_us` to `57.041992` without changing command behavior.
+- Benchmark stability update pending: average `command_us` across 10 command registration/delete cycles per sample.
+- Discarded: generating common command callbacks through a helper regressed to `command_us=61.291992`; keep explicit callbacks.
+- Discarded: moving `ColorfulTimesStatus` formatting into a lazy module regressed to `command_us=75.583008`; status callback size is not the bottleneck.
+- Discarded: localizing `require` for command callbacks regressed to `command_us=63.958984`; do not localize globals used only inside callbacks.
 - Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.

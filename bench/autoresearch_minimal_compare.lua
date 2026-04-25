@@ -6,6 +6,7 @@ local uv = vim.uv
 local unpack = table.unpack or unpack
 local samples = tonumber(vim.env.CT_BENCH_SAMPLES or "41")
 local apply_iters = tonumber(vim.env.CT_BENCH_APPLY_ITERS or "2000")
+local command_iters = tonumber(vim.env.CT_BENCH_COMMAND_ITERS or "1")
 local resolve_iters = tonumber(vim.env.CT_BENCH_RESOLVE_ITERS or "50000")
 local warmup = tonumber(vim.env.CT_BENCH_WARMUP or "5")
 
@@ -236,16 +237,19 @@ local function collect_apply_pair()
 end
 
 local function command_once()
+  local total = 0
+  for _ = 1, command_iters do
+    for _, cmd in ipairs(commands) do
+      pcall(vim.api.nvim_del_user_command, cmd)
+    end
+    local t0 = now_us()
+    vim.cmd.runtime("plugin/colorful-times.lua")
+    total = total + (now_us() - t0)
+  end
   for _, cmd in ipairs(commands) do
     pcall(vim.api.nvim_del_user_command, cmd)
   end
-  local t0 = now_us()
-  vim.cmd.runtime("plugin/colorful-times.lua")
-  local elapsed = now_us() - t0
-  for _, cmd in ipairs(commands) do
-    pcall(vim.api.nvim_del_user_command, cmd)
-  end
-  return elapsed
+  return total / command_iters
 end
 
 local ct_startup_us = collect(ct_startup_once)
