@@ -334,49 +334,64 @@ end
 local function ct_first_apply_once()
   vim.schedule = function(fn) fn() end
   local total = 0
-  for _, opts in ipairs(scenarios) do
+  local scenario_values = {}
+  for i, opts in ipairs(scenarios) do
     local ct = setup_ct(opts)
     local t0 = now_us()
     ct.apply_colorscheme()
-    total = total + (now_us() - t0)
+    local elapsed = now_us() - t0
+    scenario_values[i] = elapsed
+    total = total + elapsed
   end
   vim.schedule = orig_schedule
   clear_ct()
-  return total / #scenarios
+  return total / #scenarios, scenario_values
 end
 
 local function minimal_first_apply_once()
   local total = 0
-  for _, opts in ipairs(scenarios) do
+  local scenario_values = {}
+  for i, opts in ipairs(scenarios) do
     local mini = setup_minimal(opts)
     local t0 = now_us()
     mini.apply(advance_min())
-    total = total + (now_us() - t0)
+    local elapsed = now_us() - t0
+    scenario_values[i] = elapsed
+    total = total + elapsed
   end
   clear_minimal()
-  return total / #scenarios
+  return total / #scenarios, scenario_values
 end
 
 local function collect_first_apply_pair()
   local ct_values, minimal_values, delta_values = {}, {}, {}
+  local scenario_delta_values = { {}, {}, {}, {} }
   for _ = 1, warmup do
     ct_first_apply_once()
     minimal_first_apply_once()
   end
   for i = 1, samples do
+    local ct_scenarios, minimal_scenarios
     if i % 2 == 0 then
-      minimal_values[i] = minimal_first_apply_once()
-      ct_values[i] = ct_first_apply_once()
+      minimal_values[i], minimal_scenarios = minimal_first_apply_once()
+      ct_values[i], ct_scenarios = ct_first_apply_once()
     else
-      ct_values[i] = ct_first_apply_once()
-      minimal_values[i] = minimal_first_apply_once()
+      ct_values[i], ct_scenarios = ct_first_apply_once()
+      minimal_values[i], minimal_scenarios = minimal_first_apply_once()
     end
     delta_values[i] = ct_values[i] - minimal_values[i]
+    for scenario_i = 1, #scenarios do
+      scenario_delta_values[scenario_i][i] = ct_scenarios[scenario_i] - minimal_scenarios[scenario_i]
+    end
   end
   local delta = median(delta_values)
   local delta_p25 = percentile_sorted(delta_values, 0.25)
   local delta_p75 = percentile_sorted(delta_values, 0.75)
-  return delta, median(ct_values), median(minimal_values), delta_p25, delta_p75
+  local scenario_deltas = {}
+  for scenario_i, key in ipairs(scenario_metric_keys) do
+    scenario_deltas[key] = median(scenario_delta_values[scenario_i])
+  end
+  return delta, median(ct_values), median(minimal_values), delta_p25, delta_p75, scenario_deltas
 end
 
 local function command_once()
@@ -399,7 +414,7 @@ local delta_us, ct_startup_us, minimal_startup_us, delta_p25_us, delta_p75_us, s
 local ct_resolve_us = collect(ct_resolve_once)
 local minimal_resolve_us = collect(minimal_resolve_once)
 local apply_delta_us, ct_apply_us, minimal_apply_us, apply_delta_p25_us, apply_delta_p75_us, scenario_apply_deltas = collect_apply_pair()
-local first_apply_delta_us, ct_first_apply_us, minimal_first_apply_us, first_apply_delta_p25_us, first_apply_delta_p75_us = collect_first_apply_pair()
+local first_apply_delta_us, ct_first_apply_us, minimal_first_apply_us, first_apply_delta_p25_us, first_apply_delta_p75_us, scenario_first_apply_deltas = collect_first_apply_pair()
 local command_us, command_p25_us, command_p75_us = collect_spread(command_once)
 local ratio_x = ct_startup_us / minimal_startup_us
 local resolve_delta_us = ct_resolve_us - minimal_resolve_us
@@ -439,6 +454,10 @@ local metrics = {
   { "first_apply_delta_iqr_us", first_apply_delta_iqr_us },
   { "ct_first_apply_us", ct_first_apply_us },
   { "minimal_first_apply_us", minimal_first_apply_us },
+  { "first_apply_delta_empty_us", scenario_first_apply_deltas.empty },
+  { "first_apply_delta_two_entry_us", scenario_first_apply_deltas.two_entry },
+  { "first_apply_delta_disabled_us", scenario_first_apply_deltas.disabled },
+  { "first_apply_delta_hourly_us", scenario_first_apply_deltas.hourly },
   { "command_us", command_us },
   { "command_p25_us", command_p25_us },
   { "command_p75_us", command_p75_us },
