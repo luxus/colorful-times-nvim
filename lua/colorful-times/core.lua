@@ -458,6 +458,54 @@ end
 
 -- ─── Setup ───────────────────────────────────────────────────────────────────
 
+---Validate schedule time without loading the full schedule module during setup.
+---@param value unknown
+---@return integer|nil
+local function validate_time(value)
+  if type(value) ~= "string" then return nil end
+  local hour, min = value:match("^(%d%d?):(%d%d)$")
+  if not hour then return nil end
+  hour, min = tonumber(hour), tonumber(min)
+  if hour >= 24 or min >= 60 then return nil end
+  return hour * 60 + min
+end
+
+---Validate one schedule entry without loading the full schedule module during setup.
+---@param entry unknown
+---@return boolean ok
+---@return string? error
+local function validate_schedule_entry(entry)
+  if type(entry) ~= "table" then
+    return false, "entry must be a table"
+  end
+
+  if type(entry.colorscheme) ~= "string" or entry.colorscheme == "" then
+    return false, "missing colorscheme"
+  end
+
+  local start_time = validate_time(entry.start)
+  if not start_time then
+    return false, "invalid start time: " .. tostring(entry.start)
+  end
+
+  local stop_time = validate_time(entry.stop)
+  if not stop_time then
+    return false, "invalid stop time: " .. tostring(entry.stop)
+  end
+
+  if start_time == stop_time then
+    return false, "start and stop times must differ: " .. tostring(entry.start)
+  end
+
+  if entry.background ~= nil then
+    if type(entry.background) ~= "string" or not VALID_BACKGROUNDS[entry.background] then
+      return false, "invalid background: " .. tostring(entry.background)
+    end
+  end
+
+  return true
+end
+
 ---Validate user options
 ---@param opts table
 ---@return boolean ok
@@ -481,10 +529,8 @@ local function validate(opts)
     if type(opts.schedule) ~= "table" then
       return false, "schedule must be an array"
     end
-    local sched
     for i, entry in ipairs(opts.schedule) do
-      sched = sched or schedule()
-      local ok, err = sched.validate_entry(entry)
+      local ok, err = validate_schedule_entry(entry)
       if not ok then return false, string.format("schedule[%d]: %s", i, err) end
     end
   end

@@ -81,4 +81,10 @@ The apply benchmark temporarily makes `vim.schedule(fn)` execute `fn()` immediat
 
 - Baseline: `delta_us=460.916992`, `ct_startup_us=931.777995`, `minimal_startup_us=470.861003`, `startup_ratio_x=1.978881`.
 - Kept: lazy-loading `state.lua` and `system.lua` from `core.lua` reduced `delta_us` to `41.138672` and `startup_ratio_x` to `1.087762`. This worked because the primary setup path uses `persist=false` and non-system backgrounds, so persistence and system detection are not needed at require time.
-- Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that lazy submodule getters, shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
+- Kept: lazy-loading `schedule.lua` and requiring it only for validation or runtime schedule resolution reduced `delta_us` to `-12.027344`, making setup roughly equal to the minimal switcher in this benchmark.
+- Kept: caching the lazy schedule module once per validation loop reduced `delta_us` to `-22.083659`; this is likely close to benchmark noise but keeps the validation code simple.
+- Discarded: rewriting `schedule.validate_entry()` to store parsed start/stop locals regressed to `delta_us=-3.222005`; parse-time caching already makes repeated calls cheap.
+- Discarded: manual field-by-field default merging regressed to `delta_us=25.916341`; keep `vim.tbl_deep_extend()` for default config.
+- Discarded: lazy augroup creation in setup regressed to `delta_us=228.875`; keep top-level `nvim_create_augroup()` plus setup-time `nvim_clear_autocmds()`.
+- Discarded: localizing `vim.api` regressed to `delta_us=6.930664`; global lookup overhead is not material here.
+- Existing code already uses lazy loading through `lua/colorful-times/init.lua` and defers heavy setup work through `vim.defer_fn(0)`. Previous startup-focused work found that shallow config copying, `vim.validate()` wrappers, and function-level lazy loading were slower or riskier than current code.
