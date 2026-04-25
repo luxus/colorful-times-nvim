@@ -43,7 +43,7 @@ function M.parse_time(str)
   return result
 end
 
-local function validate_slot(slot)
+function M.validate_entry(slot)
   if type(slot) ~= "table" then
     return false, "entry must be a table"
   end
@@ -87,7 +87,7 @@ function M.preprocess(raw, default_bg)
   local boundaries_set = {}
 
   for idx, slot in ipairs(raw) do
-    local ok, err, start_time, stop_time = validate_slot(slot)
+    local ok, err, start_time, stop_time = M.validate_entry(slot)
     if not ok then
       vim.notify(string.format("colorful-times: invalid entry %d: %s", idx, err), vim.log.levels.ERROR)
     else
