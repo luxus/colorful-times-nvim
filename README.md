@@ -35,6 +35,7 @@ Adding or editing opens an inline drawer in the same buffer. Theme selection exp
 | `e` / `Enter` | Edit selected schedule row or focused default row |
 | `d` / `x` | Delete selected schedule entry |
 | `H` | Hold current theme for this session; press again to release |
+| `c` | Toggle TUI colors: default or theme-derived |
 | `t` | Toggle enabled or disabled |
 | `r` | Reload configuration |
 | `?` | Show help |
@@ -116,6 +117,7 @@ Here are the default options.
   },
   schedule = {},
   persist = true, -- Set to false to disable state persistence
+  tui_colors = "default", -- "default" (hardcoded) or "theme" (derive from colorscheme)
 }
 ```
 
@@ -187,8 +189,15 @@ ct.reload()
 -- Open the schedule manager TUI
 ct.open()
 
--- Inspect the current resolved state
+-- Inspect the current resolved state or theme resolution runtime plan
 ct.status()
+ct.runtime_plan()
+
+-- Build an apply-ready TUI preview target without async system detection
+ct.preview_target({ draft = { colorscheme = "tokyonight-day", background = "system" } })
+
+-- Inspect selected system background detection plan
+require("colorful-times.system").detection_plan()
 
 -- Hold/release a runtime-only theme for this Neovim session
 ct.pin_session("tokyonight-night", "dark", "dark")

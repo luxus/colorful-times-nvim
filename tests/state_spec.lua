@@ -339,6 +339,7 @@ describe("FIXED: complete merge - all config keys", function()
     default = { colorscheme = "default", background = "system", themes = { light = nil, dark = nil } },
     refresh_time = 5000,
     persist = true,
+    tui_colors = "default",
   }
 
   it("default.colorscheme is merged from stored (FIXED)", function()
@@ -373,15 +374,22 @@ describe("FIXED: complete merge - all config keys", function()
     assert.is_false(result.persist)
   end)
 
+  it("tui_colors is merged from stored (FIXED)", function()
+    local result = state.merge(vim.deepcopy(full_base), { tui_colors = "theme" })
+    assert.are.equal("theme", result.tui_colors)
+  end)
+
   it("nil values in stored don't overwrite base", function()
     local result = state.merge(vim.deepcopy(full_base), {
       refresh_time = nil,
       persist = nil,
-      default = nil
+      default = nil,
+      tui_colors = nil,
     })
     assert.are.equal(5000, result.refresh_time)
     assert.is_true(result.persist)
     assert.are.equal("default", result.default.colorscheme)
+    assert.are.equal("default", result.tui_colors)
   end)
 
   it("empty default table preserves existing defaults", function()
@@ -534,6 +542,7 @@ describe("state.validate_state", function()
       },
       refresh_time = 5000,
       persist = true,
+      tui_colors = "theme",
       default = {
         colorscheme = "default",
         background = "system",
@@ -668,6 +677,32 @@ describe("state.validate_state", function()
     end)
 
     it("allows nil persist", function()
+      assert.is_true(state.validate_state({}))
+    end)
+  end)
+
+  describe("tui_colors validation", function()
+    it("rejects invalid tui_colors values", function()
+      local ok, err = state.validate_state({ tui_colors = "invalid" })
+      assert.is_false(ok)
+      assert.is_truthy(err:match("tui_colors must be 'default' or 'theme'"))
+    end)
+
+    it("rejects non-string tui_colors", function()
+      local ok, err = state.validate_state({ tui_colors = 123 })
+      assert.is_false(ok)
+      assert.is_truthy(err:match("tui_colors must be 'default' or 'theme'"))
+    end)
+
+    it("accepts 'default' tui_colors", function()
+      assert.is_true(state.validate_state({ tui_colors = "default" }))
+    end)
+
+    it("accepts 'theme' tui_colors", function()
+      assert.is_true(state.validate_state({ tui_colors = "theme" }))
+    end)
+
+    it("allows nil tui_colors", function()
       assert.is_true(state.validate_state({}))
     end)
   end)

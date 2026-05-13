@@ -274,7 +274,7 @@ describe("tui.open", function()
 
     local status = require("colorful-times.core").status()
     assert.is_true(status.pinned)
-    assert.are.equal("session_pin", status.source)
+    assert.are.equal("session_hold", status.source)
     assert.is_truthy(buffer_text():match("Held current theme"))
 
     feed("H")
@@ -294,6 +294,27 @@ describe("tui.open", function()
     assert.is_truthy(text:match("⚠"))
     assert.is_truthy(text:match("Delete 07:00%-18:00 tokyonight%-day"))
     assert.is_truthy(text:match("y delete / n or Esc cancel"))
+  end)
+
+  it("toggles TUI colors mode from browse mode", function()
+    vim.o.columns = 120
+    vim.o.lines = 40
+
+    local core = require("colorful-times.core")
+    assert.are.equal("default", core.config.tui_colors)
+
+    tui.open()
+    feed("c")
+
+    assert.are.equal("theme", core.config.tui_colors)
+    local text = buffer_text()
+    assert.is_truthy(text:match("TUI colors switched to theme mode"))
+
+    feed("c")
+
+    assert.are.equal("default", core.config.tui_colors)
+    text = buffer_text()
+    assert.is_truthy(text:match("TUI colors switched to default mode"))
   end)
 end)
 

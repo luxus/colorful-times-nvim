@@ -112,6 +112,13 @@ function M.setup(app)
   )
   map(
     buf,
+    "c",
+    char_or(app, "c", function()
+      actions.toggle_tui_colors(app)
+    end)
+  )
+  map(
+    buf,
     "t",
     char_or(app, "t", function()
       actions.toggle(app)
@@ -181,6 +188,7 @@ function M.setup(app)
 
   local reserved = {
     a = true,
+    c = true,
     d = true,
     e = true,
     h = true,

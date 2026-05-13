@@ -79,7 +79,7 @@ end
 local function check_schedule(health)
   -- Schedule validation
   local M_cfg = require("colorful-times")
-  local sched = require("colorful-times.schedule")
+  local sched = require("colorful-times.schedule_runtime")
   local bad = 0
   for idx, entry in ipairs(M_cfg.config.schedule) do
     local ok, err = sched.validate_entry(entry)

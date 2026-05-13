@@ -2,7 +2,7 @@
 -- Pure-ish projections from plugin config/runtime state to renderable TUI data.
 
 local M = {}
-local schedule = require("colorful-times.schedule")
+local schedule = require("colorful-times.schedule_runtime")
 
 local MINUTES_PER_DAY = 1440
 
