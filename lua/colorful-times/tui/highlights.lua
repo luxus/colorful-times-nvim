@@ -7,21 +7,21 @@ local ns = vim.api.nvim_create_namespace("colorful_times_tui")
 
 local DEFAULT_SPECS = {
   ColorfulTimesTitle = { fg = "#c084fc", bold = true },
-  ColorfulTimesDim = { fg = "#6b7280" },
-  ColorfulTimesMuted = { fg = "#94a3b8" },
+  ColorfulTimesDim = { fg = "#475569" },
+  ColorfulTimesMuted = { fg = "#64748b" },
   ColorfulTimesEnabled = { fg = "#22c55e", bold = true },
   ColorfulTimesDisabled = { fg = "#64748b", bold = true },
-  ColorfulTimesPinned = { fg = "#f0abfc", bold = true },
-  ColorfulTimesAccent = { fg = "#38bdf8", bold = true },
-  ColorfulTimesWarn = { fg = "#fbbf24", bold = true },
+  ColorfulTimesPinned = { fg = "#a855f7", bold = true },
+  ColorfulTimesAccent = { fg = "#0ea5e9", bold = true },
+  ColorfulTimesWarn = { fg = "#f59e0b", bold = true },
   ColorfulTimesDanger = { fg = "#ffffff", bg = "#dc2626", bold = true, reverse = true },
   ColorfulTimesSelected = { fg = "#ffffff", bg = "#4c1d95", bold = true },
   ColorfulTimesActive = { fg = "#10b981", bold = true },
   ColorfulTimesField = { fg = "#f5d0fe", bg = "#4c1d95", bold = true },
-  ColorfulTimesFooter = { fg = "#93c5fd" },
-  ColorfulTimesFrame = { fg = "#94a3b8" },
+  ColorfulTimesFooter = { fg = "#3b82f6" },
+  ColorfulTimesFrame = { fg = "#64748b" },
   ColorfulTimesFrameFocus = { fg = "#c084fc", bold = true },
-  ColorfulTimesTimeline = { fg = "#38bdf8" },
+  ColorfulTimesTimeline = { fg = "#0ea5e9" },
 }
 
 local SEMANTIC_MAP = {
