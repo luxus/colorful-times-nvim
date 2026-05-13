@@ -32,6 +32,7 @@ local M = {}
 ---@field default ColorfulTimes.DefaultConfig
 ---@field schedule ColorfulTimes.ScheduleEntry[]
 ---@field persist boolean
+---@field tui_colors "default" | "theme"
 
 M.config = {
   enabled = true,
@@ -45,6 +46,7 @@ M.config = {
   },
   schedule = {},
   persist = true,
+  tui_colors = "default",
 }
 
 -- Lazy-load core on first access - use static lookup for O(1) check
@@ -59,8 +61,8 @@ local _lazy_keys = {
   status = true,
   apply_colorscheme = true,
   refresh = true,
-  resolve_theme_context = true,
-  active_resolved_theme = true,
+  runtime_plan = true,
+  preview_target = true,
   pin_session = true,
   unpin_session = true,
   session_pin = true,

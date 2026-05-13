@@ -60,6 +60,13 @@ function M.apply(colorscheme, background, resolved_background)
   end)
 end
 
+---@param target table
+function M.apply_target(target)
+  apply_on_main(function()
+    apply_raw(target.colorscheme, target.resolved_background)
+  end)
+end
+
 function M.commit()
   snapshot = nil
 end

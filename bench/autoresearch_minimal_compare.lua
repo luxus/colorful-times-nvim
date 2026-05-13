@@ -79,7 +79,6 @@ local scenario_metric_keys = { "empty", "two_entry", "disabled", "hourly" }
 local ct_modules = {
   "colorful-times",
   "colorful-times.core",
-  "colorful-times.schedule",
   "colorful-times.schedule_runtime",
   "colorful-times.state",
   "colorful-times.system",
@@ -241,8 +240,8 @@ local function ct_resolve_once()
     local ct = setup_ct(opts)
     local t0 = now_us()
     for _ = 1, resolve_iters do
-      local cs, bg = ct.resolve_theme()
-      sink = sink + #cs + #bg
+      local plan = ct.runtime_plan()
+      sink = sink + #plan.target.colorscheme + #plan.target.resolved_background
     end
     total = total + (now_us() - t0) / resolve_iters
   end

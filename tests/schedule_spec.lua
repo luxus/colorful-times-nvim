@@ -1,5 +1,5 @@
 -- tests/schedule_spec.lua
-local schedule = require("colorful-times.schedule")
+local schedule = require("colorful-times.schedule_runtime")
 
 describe("schedule.parse_time", function()
   it("parses valid HH:MM", function()
@@ -103,8 +103,8 @@ describe("schedule.preprocess", function()
 
   it("skips and reports invalid entries", function()
     -- Clear any cached state that might affect this test
-    package.loaded["colorful-times.schedule"] = nil
-    local clean_schedule = require("colorful-times.schedule")
+    package.loaded["colorful-times.schedule_runtime"] = nil
+    local clean_schedule = require("colorful-times.schedule_runtime")
 
     local errors = {}
     -- patch vim.notify to capture messages
@@ -220,8 +220,8 @@ end)
 describe("schedule.next_change_at cache", function()
   it("returns cached result for same (parsed, time_mins) pair", function()
     -- Reload module to get fresh cache
-    package.loaded["colorful-times.schedule"] = nil
-    local test_schedule = require("colorful-times.schedule")
+    package.loaded["colorful-times.schedule_runtime"] = nil
+    local test_schedule = require("colorful-times.schedule_runtime")
 
     local parsed = test_schedule.preprocess({
       { start = "06:00", stop = "18:00", colorscheme = "day", background = "light" },
@@ -239,8 +239,8 @@ describe("schedule.next_change_at cache", function()
 
   it("recomputes when time_mins changes", function()
     -- Reload module to get fresh cache
-    package.loaded["colorful-times.schedule"] = nil
-    local test_schedule = require("colorful-times.schedule")
+    package.loaded["colorful-times.schedule_runtime"] = nil
+    local test_schedule = require("colorful-times.schedule_runtime")
 
     local parsed = test_schedule.preprocess({
       { start = "06:00", stop = "18:00", colorscheme = "day", background = "light" },
@@ -257,8 +257,8 @@ describe("schedule.next_change_at cache", function()
 
   it("recomputes when parsed schedule changes", function()
     -- Reload module to get fresh cache
-    package.loaded["colorful-times.schedule"] = nil
-    local test_schedule = require("colorful-times.schedule")
+    package.loaded["colorful-times.schedule_runtime"] = nil
+    local test_schedule = require("colorful-times.schedule_runtime")
 
     local parsed1 = test_schedule.preprocess({
       { start = "06:00", stop = "18:00", colorscheme = "day", background = "light" },
@@ -280,8 +280,8 @@ describe("schedule.next_change_at cache", function()
 
   it("uses single entry cache with replacement strategy", function()
     -- Reload module to get fresh cache
-    package.loaded["colorful-times.schedule"] = nil
-    local test_schedule = require("colorful-times.schedule")
+    package.loaded["colorful-times.schedule_runtime"] = nil
+    local test_schedule = require("colorful-times.schedule_runtime")
 
     local parsed = test_schedule.preprocess({
       { start = "06:00", stop = "18:00", colorscheme = "day", background = "light" },
@@ -304,8 +304,8 @@ end)
 describe("schedule.parse_time cache", function()
   it("returns cached result for same time string", function()
     -- Reload module to get fresh cache
-    package.loaded["colorful-times.schedule"] = nil
-    local test_schedule = require("colorful-times.schedule")
+    package.loaded["colorful-times.schedule_runtime"] = nil
+    local test_schedule = require("colorful-times.schedule_runtime")
 
     -- First call should compute and cache
     local result1 = test_schedule.parse_time("12:30")
@@ -321,8 +321,8 @@ describe("schedule.parse_time cache", function()
 
   it("caches invalid time strings as nil", function()
     -- Reload module to get fresh cache
-    package.loaded["colorful-times.schedule"] = nil
-    local test_schedule = require("colorful-times.schedule")
+    package.loaded["colorful-times.schedule_runtime"] = nil
+    local test_schedule = require("colorful-times.schedule_runtime")
 
     -- First call should compute and cache nil
     local result1 = test_schedule.parse_time("invalid")
@@ -341,8 +341,8 @@ describe("schedule.parse_time cache", function()
 
   it("actually uses cache - string.match not called on second access", function()
     -- Reload module to get fresh cache
-    package.loaded["colorful-times.schedule"] = nil
-    local test_schedule = require("colorful-times.schedule")
+    package.loaded["colorful-times.schedule_runtime"] = nil
+    local test_schedule = require("colorful-times.schedule_runtime")
 
     -- Monkey-patch string.match to count calls
     local orig_match = string.match
@@ -374,8 +374,8 @@ describe("schedule.parse_time cache", function()
 
   it("actually caches invalid results - string.match not called on second access", function()
     -- Reload module to get fresh cache
-    package.loaded["colorful-times.schedule"] = nil
-    local test_schedule = require("colorful-times.schedule")
+    package.loaded["colorful-times.schedule_runtime"] = nil
+    local test_schedule = require("colorful-times.schedule_runtime")
 
     -- Monkey-patch string.match to count calls
     local orig_match = string.match
@@ -407,8 +407,8 @@ describe("schedule.parse_time cache", function()
 
   it("memoizes many distinct values without eviction side effects", function()
     -- Reload module to get fresh cache
-    package.loaded["colorful-times.schedule"] = nil
-    local test_schedule = require("colorful-times.schedule")
+    package.loaded["colorful-times.schedule_runtime"] = nil
+    local test_schedule = require("colorful-times.schedule_runtime")
 
     local results = {}
     for i = 1, 105 do

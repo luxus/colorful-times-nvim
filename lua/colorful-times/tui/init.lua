@@ -10,6 +10,7 @@ local render = require("colorful-times.tui.render")
 local highlights = require("colorful-times.tui.highlights")
 local keys = require("colorful-times.tui.keys")
 local preview = require("colorful-times.tui.preview")
+local ct = require("colorful-times")
 
 local app = nil
 
@@ -69,7 +70,7 @@ function M.open()
     close_app(app)
   end
 
-  highlights.setup(win)
+  highlights.setup(win, ct.config.tui_colors)
   keys.setup(app)
 
   api.nvim_create_autocmd("BufWipeout", {

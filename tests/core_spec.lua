@@ -178,7 +178,7 @@ describe("core.setup validation", function()
   end)
 end)
 
-describe("core.resolve_theme wall clock", function()
+describe("core.runtime_plan wall clock", function()
   local core
   local plugin
   local orig_os_date
@@ -213,9 +213,9 @@ describe("core.resolve_theme wall clock", function()
       },
     }
 
-    local colorscheme, background = core.resolve_theme()
-    assert.are.equal("wall-clock-theme", colorscheme)
-    assert.are.equal("light", background)
+    local plan = core.runtime_plan()
+    assert.are.equal("wall-clock-theme", plan.target.colorscheme)
+    assert.are.equal("light", plan.target.resolved_background)
   end)
 
   it("keeps an explicit schedule colorscheme when the schedule entry uses system background", function()
@@ -239,10 +239,10 @@ describe("core.resolve_theme wall clock", function()
       },
     }
 
-    local colorscheme, background, use_default_overrides = core.resolve_theme()
-    assert.are.equal("scheduled-system-theme", colorscheme)
-    assert.are.equal("system", background)
-    assert.is_false(use_default_overrides)
+    local plan = core.runtime_plan()
+    assert.are.equal("scheduled-system-theme", plan.target.colorscheme)
+    assert.are.equal("system", plan.target.requested_background)
+    assert.are.equal("system_background", plan.detection.kind)
   end)
 end)
 
@@ -522,7 +522,7 @@ describe("core session pin", function()
 
     local status = core.status()
     assert.is_true(status.pinned)
-    assert.are.equal("session_pin", status.source)
+    assert.are.equal("session_hold", status.source)
     assert.are.equal("pinned-theme", status.colorscheme)
     assert.are.equal("dark", status.background)
 
@@ -589,10 +589,17 @@ describe("core polling hardening", function()
 
     local system = require("colorful-times.system")
     get_background_calls = 0
+    system.detection_plan = function()
+      return { available = true, backend = "test", detail = "test", kind = "test" }
+    end
     system.has_detection = function()
       return true
     end
     system.get_background = function(cb)
+      get_background_calls = get_background_calls + 1
+      detection_callback = cb
+    end
+    system.run_detection_plan = function(_, cb)
       get_background_calls = get_background_calls + 1
       detection_callback = cb
     end

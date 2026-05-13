@@ -119,8 +119,8 @@ background is detected.
 :ColorfulTimesStatus
     Show the current resolved colorscheme, background, state, and
     detection backend information. If a session hold is active, the status
-    command output includes `held: true`; API status still reports
-    `pinned: true` and `source: session_pin` for compatibility.
+    command output includes `held: true`; API status reports
+    `pinned: true` and `source: session_hold`.
 
                                                        *:checkhealth*
 :checkhealth colorful-times
@@ -154,6 +154,19 @@ background is detected.
 `require('colorful-times').status()`                   *colorful-times.status()*
     Returns a table describing the currently resolved source, colorscheme,
     background, persistence state, session hold state, and detection backend.
+
+`require('colorful-times').runtime_plan()`             *colorful-times.runtime_plan()*
+    Returns the current theme resolution runtime plan: the apply-ready target,
+    optional system background detection intent, poll requirement, and next
+    schedule boundary.
+
+`require('colorful-times').preview_target(req)`        *colorful-times.preview_target()*
+    Returns an apply-ready TUI preview target for a draft schedule/default
+    theme without invoking async system background detection.
+
+`require('colorful-times.system').detection_plan()`
+    Returns the selected system background detection plan. Core executes this
+    plan when runtime theme resolution requests system background detection.
 
 `require('colorful-times').pin_session(cs, bg, resolved_bg)`
                                                         *colorful-times.pin_session()*
